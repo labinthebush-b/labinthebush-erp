@@ -8,14 +8,14 @@ type SaleRow = {
   date: string;
   contact_id: string | null;
   // Legado (pré-múltiplos-itens) — nulo em toda venda criada a partir de
-  // agora; ver legacyRowToItems.
+  // agora; ver legacyRowToItems. O produto/quantidade de uma venda atual
+  // vive em `sale_items` (tabela própria, não aqui).
   product_id: string | null;
   quantity: number | null;
   coupon_code: string | null;
   subtotal: number | null;
   discount: Discount | null;
   // Atual.
-  items: SaleItem[] | null;
   discounts: Discount[] | null;
   shipping_amount: number | null;
   shipping_cost: number | null;
@@ -30,17 +30,34 @@ type SaleRow = {
   updated_at: string;
 };
 
+type SaleItemRow = {
+  id: string;
+  sale_id: string;
+  user_id: string;
+  product_id: string;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+};
+
+function rowToSaleItem(row: SaleItemRow): SaleItem {
+  return { id: row.id, productId: row.product_id, quantity: row.quantity, unitPrice: row.unit_price, subtotal: row.subtotal };
+}
+
+function saleItemToRow(userId: string, saleId: string, item: SaleItem): SaleItemRow {
+  return { id: item.id, sale_id: saleId, user_id: userId, product_id: item.productId, quantity: item.quantity, unit_price: item.unitPrice, subtotal: item.subtotal };
+}
+
 /**
- * Vendas registradas antes da introdução de `items` só têm as colunas
- * legadas (product_id/quantity/subtotal). Sintetiza um `items` de um item só
- * a partir delas para que o resto do app nunca precise saber que essa venda
- * é antiga — `subtotal` (ou total_amount, se nem subtotal existir) é mantido
- * como está, mesmo que não seja exatamente quantity*unitPrice depois do
- * arredondamento; isso é só uma leitura de compatibilidade, nunca é
- * regravado.
+ * Vendas registradas antes da introdução de `sale_items` não têm nenhuma
+ * linha lá — só as colunas legadas em `sales` (product_id/quantity/
+ * subtotal). Sintetiza um item só a partir delas para que o resto do app
+ * nunca precise saber que essa venda é antiga — `subtotal` (ou
+ * total_amount, se nem subtotal existir) é mantido como está, mesmo que não
+ * seja exatamente quantity*unitPrice depois do arredondamento; isso é só
+ * uma leitura de compatibilidade, nunca é regravado.
  */
 function legacyRowToItems(row: SaleRow): SaleItem[] {
-  if (row.items && row.items.length > 0) return row.items;
   if (!row.product_id) return [];
   const quantity = row.quantity ?? 1;
   const subtotal = row.subtotal ?? row.total_amount;
@@ -53,12 +70,12 @@ function legacyRowToDiscounts(row: SaleRow): Discount[] {
   return row.discount ? [row.discount] : [];
 }
 
-function rowToSale(row: SaleRow): Sale {
+function rowToSale(row: SaleRow, itemRows: SaleItemRow[]): Sale {
   return {
     id: row.id,
     date: row.date,
     contactId: row.contact_id ?? undefined,
-    items: legacyRowToItems(row),
+    items: itemRows.length > 0 ? itemRows.map(rowToSaleItem) : legacyRowToItems(row),
     discounts: legacyRowToDiscounts(row),
     shippingAmount: row.shipping_amount ?? undefined,
     shippingCost: row.shipping_cost ?? undefined,
@@ -74,7 +91,7 @@ function rowToSale(row: SaleRow): Sale {
   };
 }
 
-/** Vendas novas/editadas nunca voltam a escrever nas colunas legadas — só `items`/`discounts` a partir daqui. */
+/** Vendas novas/editadas nunca voltam a escrever nas colunas legadas — só `sale_items`/`discounts` a partir daqui. */
 function saleToRow(userId: string, sale: Sale): SaleRow {
   return {
     id: sale.id,
@@ -86,7 +103,6 @@ function saleToRow(userId: string, sale: Sale): SaleRow {
     coupon_code: null,
     subtotal: null,
     discount: null,
-    items: sale.items,
     discounts: sale.discounts,
     shipping_amount: sale.shippingAmount ?? null,
     shipping_cost: sale.shippingCost ?? null,
@@ -103,17 +119,48 @@ function saleToRow(userId: string, sale: Sale): SaleRow {
 }
 
 export async function fetchSales(userId: string, client: AnySupabaseClient = createClient()): Promise<Sale[]> {
-  const { data, error } = await client.from("sales").select("*").eq("user_id", userId);
-  if (error) throw error;
-  return (data as SaleRow[]).map(rowToSale);
+  const [{ data: saleRows, error: salesError }, { data: itemRows, error: itemsError }] = await Promise.all([
+    client.from("sales").select("*").eq("user_id", userId),
+    client.from("sale_items").select("*").eq("user_id", userId),
+  ]);
+  if (salesError) throw salesError;
+  if (itemsError) throw itemsError;
+
+  const itemsBySaleId = new Map<string, SaleItemRow[]>();
+  for (const row of itemRows as SaleItemRow[]) {
+    const list = itemsBySaleId.get(row.sale_id) ?? [];
+    list.push(row);
+    itemsBySaleId.set(row.sale_id, list);
+  }
+
+  return (saleRows as SaleRow[]).map((row) => rowToSale(row, itemsBySaleId.get(row.id) ?? []));
 }
 
+/**
+ * Upsert da venda + seus itens. Os itens são sempre substituídos por
+ * completo (apaga tudo que já existia para aquela venda, insere a lista
+ * atual) em vez de tentar diferenciar item a item — uma venda tem poucos
+ * itens e é editada como formulário inteiro, então isso é simples e sempre
+ * correto, sem risco de sobrar item órfão de uma edição anterior.
+ */
 export async function upsertSales(userId: string, sales: Sale[], client: AnySupabaseClient = createClient()): Promise<void> {
   if (sales.length === 0) return;
-  const { error } = await client.from("sales").upsert(sales.map((s) => saleToRow(userId, s)));
-  if (error) throw error;
+
+  const { error: salesUpsertError } = await client.from("sales").upsert(sales.map((s) => saleToRow(userId, s)));
+  if (salesUpsertError) throw salesUpsertError;
+
+  const saleIds = sales.map((s) => s.id);
+  const { error: deleteItemsError } = await client.from("sale_items").delete().eq("user_id", userId).in("sale_id", saleIds);
+  if (deleteItemsError) throw deleteItemsError;
+
+  const itemRows = sales.flatMap((sale) => sale.items.map((item) => saleItemToRow(userId, sale.id, item)));
+  if (itemRows.length > 0) {
+    const { error: insertItemsError } = await client.from("sale_items").insert(itemRows);
+    if (insertItemsError) throw insertItemsError;
+  }
 }
 
+/** `sale_items` são removidos automaticamente (on delete cascade) — nada a fazer aqui além de apagar a venda. */
 export async function deleteSales(userId: string, ids: string[]): Promise<void> {
   if (ids.length === 0) return;
   const { error } = await createClient().from("sales").delete().eq("user_id", userId).in("id", ids);
