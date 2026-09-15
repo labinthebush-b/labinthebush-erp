@@ -70,8 +70,8 @@ function productToRow(userId: string, product: Product): ProductRow {
   };
 }
 
-export async function fetchProducts(userId: string): Promise<Product[]> {
-  const { data, error } = await createClient().from("products").select("*").eq("user_id", userId);
+export async function fetchProducts(userId: string, client: AnySupabaseClient = createClient()): Promise<Product[]> {
+  const { data, error } = await client.from("products").select("*").eq("user_id", userId);
   if (error) throw error;
   return (data as ProductRow[]).map(rowToProduct);
 }

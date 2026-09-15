@@ -62,8 +62,8 @@ function taskToRow(userId: string, task: Task): TaskRow {
   };
 }
 
-export async function fetchTasks(userId: string): Promise<Task[]> {
-  const { data, error } = await createClient().from("tasks").select("*").eq("user_id", userId);
+export async function fetchTasks(userId: string, client: AnySupabaseClient = createClient()): Promise<Task[]> {
+  const { data, error } = await client.from("tasks").select("*").eq("user_id", userId);
   if (error) throw error;
   return (data as TaskRow[]).map(rowToTask);
 }

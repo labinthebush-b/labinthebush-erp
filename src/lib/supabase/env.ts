@@ -29,7 +29,7 @@ export function getSupabaseAnonKey(): string {
   return required("NEXT_PUBLIC_SUPABASE_ANON_KEY", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 }
 
-/** Service-role key — server-only, never exposed to the browser. Used only by the dev seed script. */
+/** Service-role key — server-only, never exposed to the browser. Used by the dev seed script and by the AI integration route (src/lib/ai), which must resolve an API key to a user before any Supabase session/JWT exists. */
 export function getSupabaseServiceRoleKey(): string {
   return required("SUPABASE_SERVICE_ROLE_KEY", process.env.SUPABASE_SERVICE_ROLE_KEY);
 }

@@ -7,6 +7,14 @@ import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 // standard @supabase/ssr proxy (formerly "middleware", renamed in Next.js 16)
 // pattern for the Next.js App Router.
 export async function proxy(request: NextRequest) {
+  // API routes authenticate themselves (e.g. /api/mcp checks its own
+  // "Authorization: Bearer <api key>" header — see src/lib/ai/context.ts)
+  // and are called by external clients that never hold a Supabase session
+  // cookie. Redirecting them to /login here would break every such call.
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {

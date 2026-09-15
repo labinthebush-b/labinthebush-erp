@@ -68,8 +68,8 @@ function saleToRow(userId: string, sale: Sale): SaleRow {
   };
 }
 
-export async function fetchSales(userId: string): Promise<Sale[]> {
-  const { data, error } = await createClient().from("sales").select("*").eq("user_id", userId);
+export async function fetchSales(userId: string, client: AnySupabaseClient = createClient()): Promise<Sale[]> {
+  const { data, error } = await client.from("sales").select("*").eq("user_id", userId);
   if (error) throw error;
   return (data as SaleRow[]).map(rowToSale);
 }

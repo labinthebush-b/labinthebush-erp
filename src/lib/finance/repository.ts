@@ -78,8 +78,11 @@ function transactionToRow(userId: string, t: Transaction): TransactionRow {
   };
 }
 
-export async function fetchTransactions(userId: string): Promise<Transaction[]> {
-  const { data, error } = await createClient().from("transactions").select("*").eq("user_id", userId);
+export async function fetchTransactions(
+  userId: string,
+  client: AnySupabaseClient = createClient()
+): Promise<Transaction[]> {
+  const { data, error } = await client.from("transactions").select("*").eq("user_id", userId);
   if (error) throw error;
   return (data as TransactionRow[]).map(rowToTransaction);
 }
@@ -106,8 +109,11 @@ export async function deleteTransactionRows(userId: string, ids: string[]): Prom
 
 type CustomCategoryRow = { id: string; user_id: string; label: string; group: Category["group"] };
 
-export async function fetchCustomCategories(userId: string): Promise<Category[]> {
-  const { data, error } = await createClient().from("custom_categories").select("*").eq("user_id", userId);
+export async function fetchCustomCategories(
+  userId: string,
+  client: AnySupabaseClient = createClient()
+): Promise<Category[]> {
+  const { data, error } = await client.from("custom_categories").select("*").eq("user_id", userId);
   if (error) throw error;
   return (data as CustomCategoryRow[]).map((row) => ({ id: row.id, label: row.label, group: row.group, custom: true }));
 }

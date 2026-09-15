@@ -1,15 +1,7 @@
 "use client";
 
 import * as React from "react";
-import type {
-  Category,
-  PaymentSource,
-  RecurringRule,
-  Transaction,
-  TransactionRelations,
-  TransactionStatus,
-  TransactionType,
-} from "./types";
+import type { Category, RecurringRule, Transaction, TransactionStatus } from "./types";
 import { DEFAULT_CATEGORIES } from "./categories";
 import {
   EMPTY_FINANCE_STATE,
@@ -17,11 +9,20 @@ import {
   type FinanceAction,
   type FinanceState,
 } from "./store-reducer";
-import {
-  addMonthsToISODate,
-  splitAmountIntoInstallments,
-} from "./calculations";
+import { addMonthsToISODate } from "./calculations";
 import { generateMissingOccurrences } from "./recurrence";
+import {
+  buildCustomCategory,
+  buildInstallmentTransactions,
+  buildRecurringRule,
+  buildTransaction,
+  makeId,
+  nowISO,
+  todayISO,
+  type NewInstallmentInput,
+  type NewRecurringRuleInput,
+  type NewTransactionInput,
+} from "./actions";
 import { useSupabaseReducer } from "@/lib/supabase/use-supabase-reducer";
 import { diffById } from "@/lib/supabase/diff-collection";
 import {
@@ -43,21 +44,6 @@ import {
 } from "./repository";
 
 const RECURRENCE_HORIZON_MONTHS = 2;
-
-function makeId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
-  }
-  return `id-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function nowISO(): string {
-  return new Date().toISOString();
-}
-
-function todayISO(): string {
-  return nowISO().slice(0, 10);
-}
 
 /**
  * Fetches every Financeiro sub-collection, then generates any recurring
@@ -113,36 +99,7 @@ async function sync(userId: string, previous: FinanceState, next: FinanceState):
   ]);
 }
 
-export type NewTransactionInput = {
-  type: TransactionType;
-  amount: number;
-  date: string;
-  category: string;
-  description: string;
-  paymentSource: PaymentSource;
-  status: TransactionStatus;
-  dueDate?: string;
-  notes?: string;
-  relations?: TransactionRelations;
-};
-
-export type NewInstallmentInput = Omit<NewTransactionInput, "amount" | "status"> & {
-  totalAmount: number;
-  installmentsCount: number;
-  /** Whether the first installment is already settled. */
-  firstInstallmentSettled: boolean;
-};
-
-export type NewRecurringRuleInput = {
-  description: string;
-  amount: number;
-  category: string;
-  paymentSource: PaymentSource;
-  type: Extract<TransactionType, "expense" | "income">;
-  dayOfMonth: number;
-  startDate: string;
-  endDate?: string;
-};
+export type { NewTransactionInput, NewInstallmentInput, NewRecurringRuleInput } from "./actions";
 
 type FinanceContextValue = {
   transactions: Transaction[];
@@ -189,55 +146,14 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
 
   const value = React.useMemo<FinanceContextValue>(() => {
     function addTransaction(input: NewTransactionInput): Transaction {
-      const timestamp = nowISO();
-      const transaction: Transaction = {
-        id: makeId(),
-        ...input,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        edited: false,
-      };
+      const transaction = buildTransaction(input);
       dispatch({ type: "ADD_TRANSACTION", transaction });
       return transaction;
     }
 
     function addInstallmentTransaction(input: NewInstallmentInput): Transaction[] {
-      const timestamp = nowISO();
-      const groupId = makeId();
-      const amounts = splitAmountIntoInstallments(input.totalAmount, input.installmentsCount);
-
-      const transactions: Transaction[] = amounts.map((amount, index) => {
-        const date = addMonthsToISODate(input.date, index);
-        const settled = index === 0 && input.firstInstallmentSettled;
-        return {
-          id: makeId(),
-          type: input.type,
-          amount,
-          date,
-          dueDate: settled ? undefined : date,
-          category: input.category,
-          description: input.description,
-          paymentSource: input.paymentSource,
-          status: settled ? "concluido" : "pendente",
-          createdAt: timestamp,
-          updatedAt: timestamp,
-          edited: false,
-          notes: input.notes,
-          relations: { installmentGroupId: groupId },
-          installment: { number: index + 1, total: input.installmentsCount },
-        };
-      });
-
-      dispatch({
-        type: "ADD_INSTALLMENT_GROUP",
-        group: {
-          id: groupId,
-          description: input.description,
-          totalAmount: input.totalAmount,
-          installmentsCount: input.installmentsCount,
-          createdAt: timestamp,
-        },
-      });
+      const { group, transactions } = buildInstallmentTransactions(input);
+      dispatch({ type: "ADD_INSTALLMENT_GROUP", group });
       dispatch({ type: "ADD_TRANSACTIONS", transactions });
       return transactions;
     }
@@ -255,24 +171,13 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
     }
 
     function addCategory(label: string, group: Category["group"]): Category {
-      const category: Category = {
-        id: `${group}-${label.toLowerCase().replace(/\s+/g, "-")}-${makeId().slice(0, 6)}`,
-        label,
-        group,
-        custom: true,
-      };
+      const category = buildCustomCategory(label, group);
       dispatch({ type: "ADD_CUSTOM_CATEGORY", category });
       return category;
     }
 
     function addRecurringRule(input: NewRecurringRuleInput): RecurringRule {
-      const rule: RecurringRule = {
-        id: makeId(),
-        frequency: "mensal",
-        active: true,
-        createdAt: nowISO(),
-        ...input,
-      };
+      const rule = buildRecurringRule(input);
       dispatch({ type: "ADD_RECURRING_RULE", rule });
 
       const horizon = addMonthsToISODate(todayISO(), RECURRENCE_HORIZON_MONTHS);
