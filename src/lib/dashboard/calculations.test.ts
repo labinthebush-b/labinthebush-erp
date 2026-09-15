@@ -10,7 +10,7 @@ import {
 } from "./calculations";
 import { DEFAULT_CATEGORIES } from "@/lib/finance/categories";
 import { makeTransaction } from "@/lib/finance/test-helpers";
-import type { Sale } from "@/lib/sales/types";
+import { makeSale } from "@/lib/sales/test-helpers";
 import type { Product } from "@/lib/catalog/types";
 import type { Task } from "@/lib/tasks/types";
 
@@ -70,21 +70,6 @@ describe("buildDespesasKpi", () => {
 describe("buildVendasKpi", () => {
   const products: Product[] = [{ id: "p1", name: "Camiseta", status: "ativo", costComponents: [], createdAt: "", updatedAt: "" }];
 
-  function makeSale(overrides: Partial<Sale>): Sale {
-    return {
-      id: `s-${Math.random()}`,
-      date: "2026-09-10",
-      productId: "p1",
-      quantity: 1,
-      totalAmount: 10000,
-      channel: "instagram",
-      transactionId: "t1",
-      createdAt: "",
-      updatedAt: "",
-      ...overrides,
-    };
-  }
-
   it("calcula variação percentual quando há dados no período anterior", () => {
     const sales = [makeSale({ date: "2026-09-10", totalAmount: 20000 }), makeSale({ date: "2026-08-10", totalAmount: 10000 })];
     const kpi = buildVendasKpi(sales, products, [], range);
@@ -142,9 +127,7 @@ describe("buildWeeklyCashFlowSeries", () => {
 
 describe("buildSalesTrendSeries", () => {
   it("conta vendas por dia no período pedido", () => {
-    const sales = [
-      { id: "s1", date: TODAY, productId: "p1", quantity: 1, totalAmount: 100, channel: "instagram" as const, transactionId: "t", createdAt: "", updatedAt: "" },
-    ];
+    const sales = [makeSale({ id: "s1", date: TODAY, totalAmount: 100 })];
     const series = buildSalesTrendSeries(sales, TODAY, 3);
     expect(series).toEqual([0, 0, 1]);
   });

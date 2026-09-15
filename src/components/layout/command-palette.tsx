@@ -26,6 +26,7 @@ import { useTasks } from "@/lib/tasks/tasks-provider";
 import { useCatalog } from "@/lib/catalog/catalog-provider";
 import { useContacts } from "@/lib/contacts/contacts-provider";
 import { useSales } from "@/lib/sales/sales-provider";
+import { describeSaleItems } from "@/lib/sales/calculations";
 import { useFinance } from "@/lib/finance/finance-provider";
 import { TaskForm } from "@/components/tasks/task-form";
 import { ProductForm } from "@/components/catalog/product-form";
@@ -156,8 +157,8 @@ export function CommandPalette({
               <CommandSeparator />
               <CommandGroup heading="Vendas">
                 {recentSales.map((sale) => {
-                  const product = products.find((p) => p.id === sale.productId);
-                  const label = `${new Date(sale.date + "T00:00:00").toLocaleDateString("pt-BR")} — ${product?.name ?? "Produto"} — ${formatCurrencyCents(sale.totalAmount)}`;
+                  const description = describeSaleItems(sale.items, (id) => products.find((p) => p.id === id)?.name);
+                  const label = `${new Date(sale.date + "T00:00:00").toLocaleDateString("pt-BR")} — ${description} — ${formatCurrencyCents(sale.totalAmount)}`;
                   return (
                     <CommandItem key={sale.id} value={`venda ${label}`} onSelect={() => go("/vendas")}>
                       <ShoppingBag /> {label}

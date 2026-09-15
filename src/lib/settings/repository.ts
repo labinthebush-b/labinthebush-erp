@@ -12,6 +12,7 @@ type SettingsRow = {
   hidden_dashboard_widgets: string[];
   pipeline_stages: Settings["pipelineStages"];
   planning_tracked_category_ids: string[];
+  nuvemshop_fee_bps: number;
   updated_at: string;
 };
 
@@ -22,6 +23,9 @@ function rowToSettings(row: SettingsRow): Settings {
     hiddenDashboardWidgets: row.hidden_dashboard_widgets ?? [],
     pipelineStages: row.pipeline_stages ?? DEFAULT_SETTINGS.pipelineStages,
     planningTrackedCategoryIds: row.planning_tracked_category_ids ?? [],
+    // Guardado em centésimos de ponto percentual (499 = 4,99%) para não usar
+    // `numeric` do Postgres, que o supabase-js devolve como string.
+    nuvemshopFeePercent: (row.nuvemshop_fee_bps ?? 0) / 100,
   };
 }
 
@@ -40,6 +44,7 @@ export async function upsertSettings(userId: string, settings: Settings): Promis
     hidden_dashboard_widgets: settings.hiddenDashboardWidgets,
     pipeline_stages: settings.pipelineStages,
     planning_tracked_category_ids: settings.planningTrackedCategoryIds,
+    nuvemshop_fee_bps: Math.round(settings.nuvemshopFeePercent * 100),
     updated_at: new Date().toISOString(),
   };
   const { error } = await createClient().from("settings").upsert(row);

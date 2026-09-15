@@ -1,26 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { salesReducer, EMPTY_SALES_STATE } from "./sales-reducer";
-import type { Sale } from "./types";
+import { makeSale } from "./test-helpers";
 
-const sale: Sale = {
-  id: "s1",
-  date: "2026-09-10",
-  contactId: "ct1",
-  productId: "prod-1",
-  quantity: 1,
-  totalAmount: 12900,
-  channel: "instagram",
-  transactionId: "t1",
-  createdAt: "2026-09-10T00:00:00.000Z",
-  updatedAt: "2026-09-10T00:00:00.000Z",
-};
+const sale = makeSale({ id: "s1", contactId: "ct1", transactionId: "t1" });
 
 describe("salesReducer", () => {
   it("ADD_SALE adiciona a venda com a relação de transactionId preservada", () => {
     const state = salesReducer(EMPTY_SALES_STATE, { type: "ADD_SALE", sale });
     expect(state.sales).toHaveLength(1);
     expect(state.sales[0].transactionId).toBe("t1");
-    expect(state.sales[0].productId).toBe("prod-1");
+    expect(state.sales[0].items[0].productId).toBe("p1");
     expect(state.sales[0].contactId).toBe("ct1");
   });
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildSalesReport } from "./sales-report";
-import type { Sale } from "@/lib/sales/types";
+import { makeSale, makeSaleItem } from "@/lib/sales/test-helpers";
 import type { Product } from "@/lib/catalog/types";
 import type { Contact } from "@/lib/contacts/types";
 
@@ -12,21 +12,6 @@ const products: Product[] = [
 const contacts: Contact[] = [
   { id: "c1", name: "Ana", status: "cliente", customFields: [], createdAt: "", updatedAt: "" },
 ];
-
-function makeSale(overrides: Partial<Sale>): Sale {
-  return {
-    id: `s-${Math.random()}`,
-    date: "2026-09-10",
-    productId: "p1",
-    quantity: 1,
-    totalAmount: 10000,
-    channel: "instagram",
-    transactionId: "t1",
-    createdAt: "",
-    updatedAt: "",
-    ...overrides,
-  };
-}
 
 describe("buildSalesReport", () => {
   it("calcula faturamento, quantidade e ticket médio do período", () => {
@@ -46,13 +31,22 @@ describe("buildSalesReport", () => {
 
   it("agrupa por canal, produto, contato e cupom", () => {
     const sales = [
-      makeSale({ channel: "instagram", productId: "p1", contactId: "c1", couponCode: "PROMO10", totalAmount: 10000 }),
-      makeSale({ channel: "whatsapp", productId: "p1", totalAmount: 5000 }),
+      makeSale({ channel: "instagram", contactId: "c1", discounts: [{ kind: "percentual", percent: 10, code: "PROMO10" }], totalAmount: 10000 }),
+      makeSale({ channel: "whatsapp", totalAmount: 5000 }),
     ];
     const report = buildSalesReport(sales, products, contacts, range);
     expect(report.porCanal.find((c) => c.canal === "instagram")?.faturamento).toBe(10000);
     expect(report.porProduto[0]).toMatchObject({ productId: "p1", nome: "Camiseta", faturamento: 15000 });
     expect(report.porContato[0]).toMatchObject({ contactId: "c1", nome: "Ana", faturamento: 10000 });
     expect(report.cupons[0]).toMatchObject({ codigo: "PROMO10", usos: 1 });
+  });
+
+  it("venda com múltiplos produtos: soma a quantidade de cada produto e reparte a receita", () => {
+    const itemA = makeSaleItem({ productId: "p1", quantity: 1, unitPrice: 14800 });
+    const itemB = makeSaleItem({ productId: "p1", quantity: 2, unitPrice: 10000 }); // mesmo produto, dois itens (ex.: variação)
+    const sale = makeSale({ items: [itemA, itemB], totalAmount: 34800 });
+    const report = buildSalesReport([sale], products, contacts, range);
+    expect(report.porProduto[0].quantidade).toBe(3);
+    expect(report.porProduto[0].faturamento).toBe(34800);
   });
 });

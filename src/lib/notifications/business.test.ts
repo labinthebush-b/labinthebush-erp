@@ -6,8 +6,8 @@ import {
   deriveSalesTodayNotification,
 } from "./business";
 import { makeTransaction } from "@/lib/finance/test-helpers";
+import { makeSale } from "@/lib/sales/test-helpers";
 import type { Product } from "@/lib/catalog/types";
-import type { Sale } from "@/lib/sales/types";
 
 const TODAY = "2026-09-15";
 
@@ -66,23 +66,8 @@ describe("deriveMarginNotifications", () => {
 });
 
 describe("deriveSalesTodayNotification", () => {
-  function makeSale(overrides: Partial<Sale>): Sale {
-    return {
-      id: `s-${Math.random()}`,
-      date: TODAY,
-      productId: "p1",
-      quantity: 1,
-      totalAmount: 1000,
-      channel: "instagram",
-      transactionId: "t1",
-      createdAt: "",
-      updatedAt: "",
-      ...overrides,
-    };
-  }
-
   it("resume as vendas do dia em uma única notificação (sem spam)", () => {
-    const notifications = deriveSalesTodayNotification([makeSale({}), makeSale({})], TODAY);
+    const notifications = deriveSalesTodayNotification([makeSale({ date: TODAY, totalAmount: 1000 }), makeSale({ date: TODAY, totalAmount: 1000 })], TODAY);
     expect(notifications).toHaveLength(1);
     expect(notifications[0].description).toContain("2 vendas");
   });

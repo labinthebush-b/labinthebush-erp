@@ -17,6 +17,7 @@ import {
   deriveMarginNotifications,
 } from "@/lib/notifications/business";
 import { formatCurrencyCents } from "@/lib/currency";
+import { describeSaleItems } from "@/lib/sales/calculations";
 import type { Sale, SalesChannel } from "@/lib/sales/types";
 import type { Transaction } from "@/lib/finance/types";
 
@@ -91,7 +92,7 @@ export function RecentSalesCard() {
 
   const columns: DataTableColumn<Sale>[] = [
     { key: "cliente", header: "Cliente", render: (row) => (row.contactId ? contacts.find((c) => c.id === row.contactId)?.name ?? "—" : "—") },
-    { key: "produto", header: "Produto", render: (row) => products.find((p) => p.id === row.productId)?.name ?? "Produto removido" },
+    { key: "produto", header: "Produto", render: (row) => describeSaleItems(row.items, (id) => products.find((p) => p.id === id)?.name) },
     { key: "canal", header: "Canal", render: (row) => <Tag color={CHANNEL_TAG_COLOR[row.channel]}>{CHANNEL_LABELS[row.channel]}</Tag> },
     { key: "valor", header: "Valor", align: "right", render: (row) => formatCurrencyCents(row.totalAmount) },
     { key: "data", header: "Data", align: "right", render: (row) => new Date(row.date + "T00:00:00").toLocaleDateString("pt-BR") },

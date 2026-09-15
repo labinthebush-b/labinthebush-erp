@@ -18,7 +18,7 @@ import { useCatalog } from "@/lib/catalog/catalog-provider";
 import { useContacts } from "@/lib/contacts/contacts-provider";
 import { useUI } from "@/components/providers/ui-provider";
 import { SaleForm } from "@/components/sales/sale-form";
-import { calculateSaleProfit } from "@/lib/sales/calculations";
+import { calculateSaleProfit, describeSaleItems } from "@/lib/sales/calculations";
 import { formatCurrencyCents, formatSignedCurrencyCents } from "@/lib/currency";
 import type { DiscountKind, Sale, SalesChannel } from "@/lib/sales/types";
 
@@ -52,10 +52,10 @@ export function SalesPanel() {
   const sorted = [...sales].sort((a, b) => (a.date < b.date ? 1 : -1));
   const filtered = sorted.filter((s) => {
     if (!search.trim()) return true;
-    const product = getProduct(s.productId)?.name ?? "";
+    const productNames = s.items.map((item) => getProduct(item.productId)?.name ?? "").join(" ");
     const contact = s.contactId ? getContact(s.contactId)?.name ?? "" : "";
     const term = search.trim().toLowerCase();
-    return product.toLowerCase().includes(term) || contact.toLowerCase().includes(term);
+    return productNames.toLowerCase().includes(term) || contact.toLowerCase().includes(term);
   });
 
   function openCreate() {
@@ -77,9 +77,10 @@ export function SalesPanel() {
   function handleDelete(sale: Sale) {
     confirm({
       title: "Excluir venda?",
-      description: sale.shippingTransactionId
-        ? "A venda, o lançamento de receita e a despesa de frete correspondentes no Financeiro serão removidos. Essa ação não pode ser desfeita."
-        : "A venda e o lançamento de receita correspondente no Financeiro serão removidos. Essa ação não pode ser desfeita.",
+      description:
+        sale.shippingTransactionId || sale.nuvemshopFeeTransactionId
+          ? "A venda e os lançamentos correspondentes no Financeiro (receita, frete e/ou taxa do canal) serão removidos. Essa ação não pode ser desfeita."
+          : "A venda e o lançamento de receita correspondente no Financeiro serão removidos. Essa ação não pode ser desfeita.",
       onConfirm: () => {
         deleteSale(sale.id);
         toast.success("Venda excluída — os lançamentos financeiros correspondentes também foram removidos.");
@@ -89,9 +90,9 @@ export function SalesPanel() {
 
   const columns: DataTableColumn<Sale>[] = [
     { key: "date", header: "Data", render: (row) => new Date(row.date + "T00:00:00").toLocaleDateString("pt-BR") },
-    { key: "product", header: "Produto", render: (row) => getProduct(row.productId)?.name ?? "Produto removido" },
+    { key: "product", header: "Produto", render: (row) => describeSaleItems(row.items, (id) => getProduct(id)?.name) },
     { key: "contact", header: "Cliente", render: (row) => (row.contactId ? getContact(row.contactId)?.name ?? "—" : "—") },
-    { key: "quantity", header: "Qtd", align: "right", render: (row) => row.quantity },
+    { key: "quantity", header: "Qtd", align: "right", render: (row) => row.items.reduce((sum, item) => sum + item.quantity, 0) },
     { key: "channel", header: "Canal", render: (row) => <Tag color={CHANNEL_TAG_COLOR[row.channel]}>{CHANNEL_LABELS[row.channel]}</Tag> },
     {
       key: "total",
@@ -100,10 +101,9 @@ export function SalesPanel() {
       render: (row) => (
         <div className="flex flex-col items-end">
           <span>{formatCurrencyCents(row.totalAmount)}</span>
-          {row.discount ? (
+          {row.discounts.length > 0 ? (
             <span className="text-caption text-muted-foreground">
-              {DISCOUNT_KIND_SHORT_LABEL[row.discount.kind]}
-              {row.discount.code ? ` · ${row.discount.code}` : ""}
+              {row.discounts.map((d) => DISCOUNT_KIND_SHORT_LABEL[d.kind] + (d.code ? ` · ${d.code}` : "")).join(" + ")}
             </span>
           ) : null}
         </div>
@@ -114,9 +114,7 @@ export function SalesPanel() {
       header: "Lucro estimado",
       align: "right",
       render: (row) => {
-        const product = getProduct(row.productId);
-        if (!product) return "—";
-        const profit = calculateSaleProfit(row.totalAmount, product, row.quantity);
+        const profit = calculateSaleProfit(row, getProduct);
         return <span className={profit >= 0 ? "text-vivid-green" : "text-destructive"}>{formatSignedCurrencyCents(profit)}</span>;
       },
     },

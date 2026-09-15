@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildContactsReport } from "./contacts-report";
+import { makeSale } from "@/lib/sales/test-helpers";
 import type { Contact } from "@/lib/contacts/types";
-import type { Sale } from "@/lib/sales/types";
 
 const range = { start: "2026-09-01", end: "2026-09-30", label: "" };
 
@@ -13,21 +13,6 @@ function makeContact(overrides: Partial<Contact>): Contact {
     customFields: [],
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
-    ...overrides,
-  };
-}
-
-function makeSale(overrides: Partial<Sale>): Sale {
-  return {
-    id: `s-${Math.random()}`,
-    date: "2026-09-10",
-    productId: "p1",
-    quantity: 1,
-    totalAmount: 10000,
-    channel: "instagram",
-    transactionId: "t1",
-    createdAt: "",
-    updatedAt: "",
     ...overrides,
   };
 }

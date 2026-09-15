@@ -12,7 +12,7 @@ import { useSettings } from "@/lib/settings/settings-provider";
 import { useUI } from "@/components/providers/ui-provider";
 import { PriorityBadge } from "@/components/common/priority-badge";
 import { TaskForm } from "@/components/tasks/task-form";
-import { aggregateContactHistory } from "@/lib/sales/calculations";
+import { aggregateContactHistory, describeSaleItems } from "@/lib/sales/calculations";
 import { resolveStageId } from "@/lib/contacts/pipeline";
 import type { Contact } from "@/lib/contacts/types";
 import type { Sale } from "@/lib/sales/types";
@@ -30,8 +30,8 @@ export function ContactDetail({ contact }: { contact: Contact }) {
 
   const columns: DataTableColumn<Sale>[] = [
     { key: "date", header: "Data", render: (row) => new Date(row.date + "T00:00:00").toLocaleDateString("pt-BR") },
-    { key: "product", header: "Produto", render: (row) => getProduct(row.productId)?.name ?? "Produto removido" },
-    { key: "quantity", header: "Qtd", align: "right", render: (row) => row.quantity },
+    { key: "product", header: "Produto", render: (row) => describeSaleItems(row.items, (id) => getProduct(id)?.name) },
+    { key: "quantity", header: "Qtd", align: "right", render: (row) => row.items.reduce((sum, item) => sum + item.quantity, 0) },
     { key: "total", header: "Valor", align: "right", render: (row) => formatCurrencyCents(row.totalAmount) },
   ];
 

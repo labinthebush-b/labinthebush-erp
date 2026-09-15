@@ -3,13 +3,11 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { Field } from "@/components/common/field";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/common/currency-input";
 import { DateInput } from "@/components/common/date-input";
 import { Combobox } from "@/components/common/combobox";
 import { CollapsibleSection } from "@/components/common/collapsible-section";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -18,33 +16,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DrawerForm, DrawerFormActions } from "@/components/common/drawer-form";
-import { useCatalog } from "@/lib/catalog/catalog-provider";
 import { useContacts } from "@/lib/contacts/contacts-provider";
 import { useSales } from "@/lib/sales/sales-provider";
+import { useSettings } from "@/lib/settings/settings-provider";
 import { useUI } from "@/components/providers/ui-provider";
 import { ContactForm } from "@/components/contacts/contact-form";
-import { calculateSaleBreakdown } from "@/lib/sales/calculations";
+import { SaleItemsEditor } from "@/components/sales/sale-items-editor";
+import { SaleDiscountsEditor } from "@/components/sales/sale-discounts-editor";
+import { buildSaleItem, calculateSaleBreakdown, validateDiscounts } from "@/lib/sales/calculations";
 import { formatCurrencyCents } from "@/lib/currency";
 import type { Contact } from "@/lib/contacts/types";
-import type { DiscountKind, Sale, SalesChannel } from "@/lib/sales/types";
+import type { Discount, Sale, SaleItem, SalesChannel } from "@/lib/sales/types";
 
 const CHANNEL_OPTIONS: { value: SalesChannel; label: string }[] = [
   { value: "nuvemshop", label: "Nuvemshop" },
   { value: "instagram", label: "Instagram" },
   { value: "whatsapp", label: "WhatsApp" },
   { value: "outro", label: "Outro" },
-];
-
-/** Sentinel for "sem cupom" — DiscountKind itself has no "none" member because
- *  a persisted Discount is only ever created when the user actually picks one. */
-const NO_DISCOUNT = "nenhum" as const;
-type DiscountKindOption = DiscountKind | typeof NO_DISCOUNT;
-
-const DISCOUNT_KIND_OPTIONS: { value: DiscountKindOption; label: string }[] = [
-  { value: NO_DISCOUNT, label: "Sem cupom" },
-  { value: "percentual", label: "Percentual (%)" },
-  { value: "valor_fixo", label: "Valor fixo (R$)" },
-  { value: "frete_gratis", label: "Frete grátis" },
 ];
 
 function toISODate(date?: Date): string {
@@ -62,48 +50,19 @@ function toDate(value?: string): Date | undefined {
 }
 
 export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) {
-  const { products } = useCatalog();
   const { contacts } = useContacts();
   const { addSale, updateSale } = useSales();
+  const { settings } = useSettings();
   const { openModal, closeModal } = useUI();
   const isEditing = Boolean(sale);
 
   const [date, setDate] = React.useState<Date | undefined>(toDate(sale?.date) ?? new Date());
   const [contactId, setContactId] = React.useState(sale?.contactId ?? "");
-  const [productId, setProductId] = React.useState(sale?.productId ?? "");
-  const [quantity, setQuantity] = React.useState(sale?.quantity ?? 1);
-  // Vendas antigas (antes do breakdown estruturado) só têm totalAmount — nesse
-  // caso ele vira o próprio subtotal, exatamente como já é exibido hoje.
-  const [subtotal, setSubtotal] = React.useState(sale?.subtotal ?? sale?.totalAmount ?? 0);
-  const [subtotalTouched, setSubtotalTouched] = React.useState(isEditing);
+  const [items, setItems] = React.useState<SaleItem[]>(sale?.items?.length ? sale.items : [buildSaleItem({ productId: "", quantity: 1, unitPrice: 0 })]);
+  const [discounts, setDiscounts] = React.useState<Discount[]>(sale?.discounts ?? []);
   const [channel, setChannel] = React.useState<SalesChannel>(sale?.channel ?? "nuvemshop");
   const [notes, setNotes] = React.useState(sale?.notes ?? "");
-
-  const [discountKind, setDiscountKind] = React.useState<DiscountKindOption>(sale?.discount?.kind ?? NO_DISCOUNT);
-  const [discountCode, setDiscountCode] = React.useState(sale?.discount?.code ?? "");
-  const [discountDescription, setDiscountDescription] = React.useState(sale?.discount?.description ?? "");
-  const [discountPercent, setDiscountPercent] = React.useState(sale?.discount?.percent ?? 10);
-  const [discountAmount, setDiscountAmount] = React.useState(sale?.discount?.amount ?? 0);
-  const [discountAcumulativo, setDiscountAcumulativo] = React.useState(sale?.discount?.acumulativo ?? false);
   const [shippingCost, setShippingCost] = React.useState(sale?.shippingCost ?? 0);
-
-  // Suggests a subtotal from the product's price × quantity, but never
-  // overrides a value the user has already typed directly into the field.
-  function suggestSubtotal(nextProductId: string, nextQuantity: number) {
-    if (subtotalTouched) return;
-    const product = products.find((p) => p.id === nextProductId);
-    if (product?.price) setSubtotal(product.price * nextQuantity);
-  }
-
-  function handleProductChange(nextProductId: string) {
-    setProductId(nextProductId);
-    suggestSubtotal(nextProductId, quantity);
-  }
-
-  function handleQuantityChange(nextQuantity: number) {
-    setQuantity(nextQuantity);
-    suggestSubtotal(productId, nextQuantity);
-  }
 
   // Opens the same Contact form used in Contatos, stacked on top of the sale
   // drawer via the modal slot — the sale form stays open behind it, and the
@@ -121,45 +80,33 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
     });
   }
 
-  const discount =
-    discountKind === NO_DISCOUNT
-      ? undefined
-      : {
-          kind: discountKind,
-          code: discountCode.trim() || undefined,
-          description: discountDescription.trim() || undefined,
-          percent: discountKind === "percentual" ? discountPercent : undefined,
-          amount: discountKind === "valor_fixo" ? discountAmount : undefined,
-          acumulativo: discountAcumulativo || undefined,
-        };
-
-  const breakdown = calculateSaleBreakdown({ subtotal, discount, shippingCost });
+  const breakdown = calculateSaleBreakdown({ items, discounts, shippingCost, channel, nuvemshopFeePercent: settings.nuvemshopFeePercent });
 
   function handleSubmit() {
-    if (!productId) {
-      toast.error("Selecione o produto vendido.");
+    if (items.length === 0 || items.some((item) => !item.productId)) {
+      toast.error("Selecione o produto de cada item da venda.");
       return;
     }
     if (!date) {
       toast.error("Selecione a data da venda.");
       return;
     }
-    if (subtotal <= 0) {
-      toast.error("Informe o valor da venda.");
+    if (breakdown.subtotal <= 0) {
+      toast.error("Informe ao menos um item com valor.");
+      return;
+    }
+    const discountsError = validateDiscounts(discounts);
+    if (discountsError) {
+      toast.error(discountsError);
       return;
     }
 
     const payload = {
       date: toISODate(date),
       contactId: contactId || undefined,
-      productId,
-      quantity,
-      couponCode: discount?.code,
-      subtotal,
-      discount,
-      shippingAmount: breakdown.shippingAmount,
+      items,
+      discounts,
       shippingCost,
-      totalAmount: breakdown.totalAmount,
       channel,
       notes: notes || undefined,
     };
@@ -181,15 +128,6 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
           <DateInput value={date} onValueChange={setDate} />
         </Field>
 
-        <Field label="Produto">
-          <Combobox
-            options={products.map((p) => ({ value: p.id, label: p.name }))}
-            value={productId}
-            onValueChange={handleProductChange}
-            placeholder="Selecionar produto"
-          />
-        </Field>
-
         <Field label="Cliente/contato" optional>
           <Combobox
             options={contacts.map((c) => ({ value: c.id, label: c.name }))}
@@ -201,82 +139,16 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
           />
         </Field>
 
-        <Field label="Quantidade">
-          <Input
-            type="number"
-            min={1}
-            value={quantity}
-            onChange={(e) => handleQuantityChange(Math.max(1, Number(e.target.value) || 1))}
-          />
+        <Field label="Produtos" hint="Adicione um ou mais produtos — o subtotal de cada um é sempre quantidade × preço unitário.">
+          <SaleItemsEditor items={items} onChange={setItems} />
         </Field>
 
-        <Field label="Subtotal" hint="Sugerido a partir do preço do produto — ajuste se necessário.">
-          <CurrencyInput
-            value={subtotal}
-            onValueChange={(value) => {
-              setSubtotal(value);
-              setSubtotalTouched(true);
-            }}
-          />
-        </Field>
-
-        <Field label="Frete" optional hint="Custo real de frete para a marca. Cobrado do cliente, a menos que o cupom seja frete grátis.">
+        <Field label="Frete" optional hint="Custo real de frete para a marca. Cobrado do cliente, a menos que haja um desconto de frete grátis.">
           <CurrencyInput value={shippingCost} onValueChange={setShippingCost} />
         </Field>
 
-        <CollapsibleSection label="Adicionar cupom/desconto" defaultOpen={discountKind !== NO_DISCOUNT}>
-          <Field label="Tipo de desconto">
-            <Select value={discountKind} onValueChange={(value) => setDiscountKind(value as DiscountKindOption)}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {DISCOUNT_KIND_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-
-          {discountKind !== NO_DISCOUNT ? (
-            <>
-              <Field label="Código do cupom" optional>
-                <Input value={discountCode} onChange={(e) => setDiscountCode(e.target.value)} placeholder="Ex: BEMVINDO10" />
-              </Field>
-
-              {discountKind === "percentual" ? (
-                <Field label="Percentual de desconto">
-                  <div className="flex max-w-32 items-center gap-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={discountPercent}
-                      onChange={(e) => setDiscountPercent(Math.min(100, Math.max(0, Number(e.target.value) || 0)))}
-                    />
-                    <span className="text-body text-muted-foreground">%</span>
-                  </div>
-                </Field>
-              ) : null}
-
-              {discountKind === "valor_fixo" ? (
-                <Field label="Valor do desconto">
-                  <CurrencyInput value={discountAmount} onValueChange={setDiscountAmount} />
-                </Field>
-              ) : null}
-
-              <Field label="Descrição" optional>
-                <Input
-                  value={discountDescription}
-                  onChange={(e) => setDiscountDescription(e.target.value)}
-                  placeholder="Ex: Cliente recorrente, campanha de aniversário..."
-                />
-              </Field>
-
-              <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
-                <span className="text-body text-foreground">Acumulativo com outras promoções</span>
-                <Switch checked={discountAcumulativo} onCheckedChange={setDiscountAcumulativo} />
-              </div>
-            </>
-          ) : null}
+        <CollapsibleSection label="Adicionar cupom/desconto" defaultOpen={discounts.length > 0}>
+          <SaleDiscountsEditor discounts={discounts} onChange={setDiscounts} />
         </CollapsibleSection>
 
         <div className="flex flex-col gap-1.5 rounded-lg bg-paper-mist p-3">
@@ -286,7 +158,7 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
           </div>
           {breakdown.discountAmount > 0 ? (
             <div className="flex justify-between text-body">
-              <span className="text-muted-foreground">Desconto concedido</span>
+              <span className="text-muted-foreground">Descontos concedidos</span>
               <span className="text-destructive">− {formatCurrencyCents(breakdown.discountAmount)}</span>
             </div>
           ) : null}
@@ -306,6 +178,17 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
             <span className="text-foreground">Total pago pelo cliente</span>
             <span className="text-foreground">{formatCurrencyCents(breakdown.totalAmount)}</span>
           </div>
+          {breakdown.nuvemshopFeeAmount > 0 ? (
+            <div className="flex justify-between text-caption text-muted-foreground">
+              <span>Taxa Nuvemshop ({settings.nuvemshopFeePercent}%) — custo do canal, não reduz a receita</span>
+              <span>{formatCurrencyCents(breakdown.nuvemshopFeeAmount)}</span>
+            </div>
+          ) : null}
+          {channel === "nuvemshop" && settings.nuvemshopFeePercent === 0 ? (
+            <p className="text-caption text-muted-foreground">
+              Taxa da Nuvemshop ainda não configurada — defina em Configurações para que ela entre no cálculo.
+            </p>
+          ) : null}
         </div>
 
         <Field label="Canal">

@@ -42,7 +42,7 @@ export function ProductForm({ product, onDone }: { product?: Product; onDone: ()
   const { tasks } = useTasks();
   const isEditing = Boolean(product);
 
-  const relatedSales = product ? sales.filter((s) => s.productId === product.id) : [];
+  const relatedSales = product ? sales.filter((s) => s.items.some((item) => item.productId === product.id)) : [];
   const relatedTasks = product ? tasks.filter((t) => t.relations?.productId === product.id) : [];
 
   const [name, setName] = React.useState(product?.name ?? "");

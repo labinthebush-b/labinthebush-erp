@@ -1,6 +1,6 @@
 import type { Sale } from "@/lib/sales/types";
 import type { Product } from "@/lib/catalog/types";
-import { calculateSaleCost, calculateSaleProfit } from "@/lib/sales/calculations";
+import { allocateItemRevenue, calculateSaleCost } from "@/lib/sales/calculations";
 import { calculateCostComposition, calculateProductCost } from "@/lib/catalog/calculations";
 import type { PeriodRange } from "./period-range";
 import { isWithinRange } from "./period-range";
@@ -26,13 +26,19 @@ export function buildProductsReport(sales: Sale[], products: Product[], range: P
 
   const rows: ProductReportRow[] = [];
   for (const product of products) {
-    const productSales = inRange.filter((s) => s.productId === product.id);
-    if (productSales.length === 0) continue;
-
-    const quantidadeVendida = productSales.reduce((sum, s) => sum + s.quantity, 0);
-    const faturamento = productSales.reduce((sum, s) => sum + s.totalAmount, 0);
-    const custoTotal = productSales.reduce((sum, s) => sum + calculateSaleCost(product, s.quantity), 0);
-    const lucro = productSales.reduce((sum, s) => sum + calculateSaleProfit(s.totalAmount, product, s.quantity), 0);
+    let quantidadeVendida = 0;
+    let faturamento = 0;
+    let custoTotal = 0;
+    for (const sale of inRange) {
+      for (const item of sale.items) {
+        if (item.productId !== product.id) continue;
+        quantidadeVendida += item.quantity;
+        faturamento += allocateItemRevenue(sale, item);
+        custoTotal += calculateSaleCost(product, item.quantity);
+      }
+    }
+    if (quantidadeVendida === 0 && faturamento === 0) continue;
+    const lucro = faturamento - custoTotal;
 
     rows.push({
       productId: product.id,

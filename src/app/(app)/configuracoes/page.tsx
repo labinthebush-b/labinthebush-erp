@@ -13,6 +13,7 @@ import { useSettings } from "@/lib/settings/settings-provider";
 import { DASHBOARD_WIDGETS } from "@/lib/settings/types";
 import type { PipelineStage } from "@/lib/contacts/pipeline";
 import { ExportBackupButton } from "@/components/settings/export-backup-button";
+import { AiIntegrationPanel } from "@/components/settings/ai-integration-panel";
 
 let stageIdCounter = 0;
 function newStageId() {
@@ -79,6 +80,32 @@ export default function ConfiguracoesPage() {
                 onChange={(e) => {
                   const value = Math.min(100, Math.max(0, Number(e.target.value) || 0));
                   updateSettings({ marginThresholdPercent: value });
+                  toast.success("Preferência salva.");
+                }}
+              />
+              <span className="text-body text-muted-foreground">%</span>
+            </div>
+          </Field>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Canais de venda</CardTitle>
+          <CardDescription>Taxa cobrada pela Nuvemshop sobre o valor da venda — usada no cálculo de vendas desse canal.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Field label="Taxa Nuvemshop" hint="0% = sem taxa aplicada. Consulte o valor exato no seu contrato/painel da Nuvemshop.">
+            <div className="flex max-w-40 items-center gap-2">
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={0.01}
+                value={settings.nuvemshopFeePercent}
+                onChange={(e) => {
+                  const value = Math.min(100, Math.max(0, Number(e.target.value) || 0));
+                  updateSettings({ nuvemshopFeePercent: value });
                   toast.success("Preferência salva.");
                 }}
               />
@@ -173,6 +200,16 @@ export default function ConfiguracoesPage() {
         </CardHeader>
         <CardContent>
           <ExportBackupButton />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Integração com IA</CardTitle>
+          <CardDescription>Conecte assistentes de IA externos (ChatGPT, Claude) ao ERP via MCP.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AiIntegrationPanel />
         </CardContent>
       </Card>
     </div>

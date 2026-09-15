@@ -13,6 +13,8 @@ export type Settings = {
   pipelineStages: PipelineStage[];
   /** Category["id"]s tracked in Financeiro → Planejamento. Empty means "todas". */
   planningTrackedCategoryIds: string[];
+  /** Taxa cobrada pela Nuvemshop sobre o valor da venda, em % (ex.: 4.99). 0 = não configurada — nenhuma taxa é aplicada até o usuário preencher aqui (ver lib/sales/calculations.ts:calculateNuvemshopFee). */
+  nuvemshopFeePercent: number;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -21,6 +23,7 @@ export const DEFAULT_SETTINGS: Settings = {
   hiddenDashboardWidgets: [],
   pipelineStages: DEFAULT_PIPELINE_STAGES,
   planningTrackedCategoryIds: [],
+  nuvemshopFeePercent: 0,
 };
 
 export const DASHBOARD_WIDGETS = [

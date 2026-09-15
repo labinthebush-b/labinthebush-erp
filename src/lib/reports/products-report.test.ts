@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildProductsReport, productsBelowMargin } from "./products-report";
-import type { Sale } from "@/lib/sales/types";
+import { makeSale, makeSaleItem } from "@/lib/sales/test-helpers";
 import type { Product } from "@/lib/catalog/types";
 
 const range = { start: "2026-09-01", end: "2026-09-30", label: "" };
@@ -14,25 +14,11 @@ const product: Product = {
   createdAt: "",
   updatedAt: "",
 };
-
-function makeSale(overrides: Partial<Sale>): Sale {
-  return {
-    id: `s-${Math.random()}`,
-    date: "2026-09-10",
-    productId: "p1",
-    quantity: 1,
-    totalAmount: 10000,
-    channel: "instagram",
-    transactionId: "t1",
-    createdAt: "",
-    updatedAt: "",
-    ...overrides,
-  };
-}
+const productB: Product = { id: "p2", name: "Moletom", status: "ativo", price: 15000, costComponents: [{ id: "c2", category: "produto_pod", amount: 9000 }], createdAt: "", updatedAt: "" };
 
 describe("buildProductsReport", () => {
   it("calcula quantidade, faturamento, custo e lucro por produto no período", () => {
-    const sales = [makeSale({ quantity: 2, totalAmount: 20000 })];
+    const sales = [makeSale({ items: [makeSaleItem({ productId: "p1", quantity: 2, unitPrice: 10000 })], totalAmount: 20000 })];
     const [row] = buildProductsReport(sales, [product], range);
     expect(row.quantidadeVendida).toBe(2);
     expect(row.faturamento).toBe(20000);
@@ -44,6 +30,18 @@ describe("buildProductsReport", () => {
   it("não inclui produtos sem vendas no período", () => {
     const rows = buildProductsReport([], [product], range);
     expect(rows).toHaveLength(0);
+  });
+
+  it("venda com múltiplos produtos: atribui a receita proporcionalmente ao subtotal de cada item", () => {
+    const itemA = makeSaleItem({ productId: "p1", quantity: 1, unitPrice: 10000 }); // subtotal 10000
+    const itemB = makeSaleItem({ productId: "p2", quantity: 1, unitPrice: 15000 }); // subtotal 15000
+    const sales = [makeSale({ items: [itemA, itemB], totalAmount: 25000 })]; // sem desconto/frete: total = subtotal
+    const rows = buildProductsReport(sales, [product, productB], range);
+    const rowA = rows.find((r) => r.productId === "p1")!;
+    const rowB = rows.find((r) => r.productId === "p2")!;
+    expect(rowA.faturamento).toBe(10000);
+    expect(rowB.faturamento).toBe(15000);
+    expect(rowA.faturamento + rowB.faturamento).toBe(25000);
   });
 });
 

@@ -22,6 +22,7 @@ import { useTasks } from "@/lib/tasks/tasks-provider";
 import { useCatalog } from "@/lib/catalog/catalog-provider";
 import { useContacts } from "@/lib/contacts/contacts-provider";
 import { useSales } from "@/lib/sales/sales-provider";
+import { describeSaleItems } from "@/lib/sales/calculations";
 import { DEFAULT_STATUS_COLUMNS } from "@/lib/tasks/types";
 import type { EntityTag } from "@/lib/tags";
 import type { ChecklistItem, Task, TaskPriority, TaskStatus } from "@/lib/tasks/types";
@@ -191,7 +192,7 @@ export function TaskForm({
               <Combobox
                 options={sales.map((s) => ({
                   value: s.id,
-                  label: `${new Date(s.date + "T00:00:00").toLocaleDateString("pt-BR")} — ${products.find((p) => p.id === s.productId)?.name ?? "Produto"}`,
+                  label: `${new Date(s.date + "T00:00:00").toLocaleDateString("pt-BR")} — ${describeSaleItems(s.items, (id) => products.find((p) => p.id === id)?.name)}`,
                 }))}
                 value={saleId}
                 onValueChange={setSaleId}

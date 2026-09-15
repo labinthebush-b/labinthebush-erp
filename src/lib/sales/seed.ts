@@ -1,4 +1,5 @@
 import type { Sale } from "./types";
+import { buildSaleItem } from "./calculations";
 
 // Mirrors the "Venda ..." income transactions already seeded in
 // lib/finance/seed.ts (same id, amount and date) so the Vendas module and the
@@ -20,8 +21,8 @@ export const SEED_SALES: Sale[] = [
     id: "seed-sale-1",
     date: iso(-5),
     contactId: "seed-contact-1", // Ana Beatriz Souza
-    productId: "seed-product-1", // Camiseta Oversized Preta
-    quantity: 1,
+    items: [buildSaleItem({ id: "seed-sale-1-item-1", productId: "seed-product-1", quantity: 1, unitPrice: 34900 })], // Camiseta Oversized Preta
+    discounts: [],
     totalAmount: 34900,
     channel: "nuvemshop",
     transactionId: "seed-2",
@@ -32,8 +33,8 @@ export const SEED_SALES: Sale[] = [
     id: "seed-sale-2",
     date: iso(-3),
     contactId: "seed-contact-3", // Juliana Prado
-    productId: "seed-product-2", // Moletom Canguru Cinza
-    quantity: 1,
+    items: [buildSaleItem({ id: "seed-sale-2-item-1", productId: "seed-product-2", quantity: 1, unitPrice: 52000 })], // Moletom Canguru Cinza
+    discounts: [],
     totalAmount: 52000,
     channel: "whatsapp",
     transactionId: "seed-3",
@@ -44,9 +45,8 @@ export const SEED_SALES: Sale[] = [
     id: "seed-sale-3",
     date: iso(1),
     contactId: "seed-contact-2", // Carlos Mendes
-    productId: "seed-product-1",
-    quantity: 1,
-    couponCode: "BEMVINDO10",
+    items: [buildSaleItem({ id: "seed-sale-3-item-1", productId: "seed-product-1", quantity: 1, unitPrice: 18990 })],
+    discounts: [{ kind: "percentual", percent: 10, code: "BEMVINDO10" }],
     totalAmount: 18990,
     channel: "instagram",
     transactionId: "seed-4",

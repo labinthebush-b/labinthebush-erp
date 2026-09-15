@@ -1,11 +1,18 @@
 "use client";
 
 import * as React from "react";
-import type { Discount, Sale, SalesChannel } from "./types";
+import type { Discount, Sale, SaleItem, SalesChannel } from "./types";
 import { salesReducer, EMPTY_SALES_STATE, type SalesAction, type SalesState } from "./sales-reducer";
-import { buildIncomeTransactionInput, reconcileShippingExpense } from "./calculations";
+import {
+  buildIncomeTransactionInput,
+  calculateSaleBreakdown,
+  describeSaleItems,
+  reconcileNuvemshopFeeExpense,
+  reconcileShippingExpense,
+} from "./calculations";
 import { useFinance } from "@/lib/finance/finance-provider";
 import { useCatalog } from "@/lib/catalog/catalog-provider";
+import { useSettings } from "@/lib/settings/settings-provider";
 import { useSupabaseReducer } from "@/lib/supabase/use-supabase-reducer";
 import { diffById } from "@/lib/supabase/diff-collection";
 import { deleteSales, fetchSales, upsertSales } from "./repository";
@@ -31,14 +38,9 @@ async function sync(userId: string, previous: SalesState, next: SalesState): Pro
 export type NewSaleInput = {
   date: string;
   contactId?: string;
-  productId: string;
-  quantity: number;
-  couponCode?: string;
-  subtotal?: number;
-  discount?: Discount;
-  shippingAmount?: number;
+  items: SaleItem[];
+  discounts: Discount[];
   shippingCost?: number;
-  totalAmount: number;
   channel: SalesChannel;
   notes?: string;
 };
@@ -62,45 +64,61 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
   );
   const { addTransaction, updateTransaction, deleteTransaction } = useFinance();
   const { getProduct } = useCatalog();
+  const { settings } = useSettings();
 
   const value = React.useMemo<SalesContextValue>(
     () => ({
       sales: state.sales,
 
       addSale(input: NewSaleInput): Sale {
-        const product = getProduct(input.productId);
         const timestamp = nowISO();
         const saleId = makeId();
+        const breakdown = calculateSaleBreakdown({
+          items: input.items,
+          discounts: input.discounts,
+          shippingCost: input.shippingCost ?? 0,
+          channel: input.channel,
+          nuvemshopFeePercent: settings.nuvemshopFeePercent,
+        });
+        const description = describeSaleItems(input.items, (id) => getProduct(id)?.name);
 
-        // The sale never records revenue itself — it reuses the existing
-        // Financeiro `addTransaction`, so "receita" keeps a single definition.
+        // A venda nunca registra a receita ela mesma — reaproveita o
+        // `addTransaction` já existente do Financeiro, então "receita"
+        // continua tendo uma única definição.
         const transaction = addTransaction(
-          buildIncomeTransactionInput({
-            date: input.date,
-            totalAmount: input.totalAmount,
-            productName: product?.name ?? "Produto",
-            channel: input.channel,
-            saleId,
-          })
+          buildIncomeTransactionInput({ date: input.date, totalAmount: breakdown.totalAmount, description, channel: input.channel, saleId })
         );
 
-        // O custo real de frete nunca reduz a receita — vira uma despesa
-        // própria (categoria "frete"), só quando de fato há custo. A venda
-        // continua sendo uma única receita.
-        const reconciliation = reconcileShippingExpense({
+        // Custo real de frete e taxa do canal nunca reduzem a receita — cada
+        // um vira sua própria despesa, só quando de fato há valor.
+        const shippingReconciliation = reconcileShippingExpense({
           saleId,
           date: input.date,
           shippingCost: input.shippingCost ?? 0,
-          productName: product?.name ?? "Produto",
+          description,
         });
         const shippingTransactionId =
-          reconciliation.action === "create" ? addTransaction(reconciliation.input).id : undefined;
+          shippingReconciliation.action === "create" ? addTransaction(shippingReconciliation.input).id : undefined;
+
+        const feeReconciliation = reconcileNuvemshopFeeExpense({ saleId, date: input.date, feeAmount: breakdown.nuvemshopFeeAmount });
+        const nuvemshopFeeTransactionId =
+          feeReconciliation.action === "create" ? addTransaction(feeReconciliation.input).id : undefined;
 
         const sale: Sale = {
           id: saleId,
-          ...input,
+          date: input.date,
+          contactId: input.contactId,
+          items: input.items,
+          discounts: input.discounts,
+          shippingAmount: breakdown.shippingAmount,
+          shippingCost: input.shippingCost,
+          nuvemshopFeeAmount: breakdown.nuvemshopFeeAmount || undefined,
+          totalAmount: breakdown.totalAmount,
+          channel: input.channel,
+          notes: input.notes,
           transactionId: transaction.id,
           shippingTransactionId,
+          nuvemshopFeeTransactionId,
           createdAt: timestamp,
           updatedAt: timestamp,
         };
@@ -111,45 +129,74 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
       updateSale(id: string, input: NewSaleInput) {
         const existing = state.sales.find((s) => s.id === id);
         if (!existing) return;
-        const product = getProduct(input.productId);
         const timestamp = nowISO();
+        const breakdown = calculateSaleBreakdown({
+          items: input.items,
+          discounts: input.discounts,
+          shippingCost: input.shippingCost ?? 0,
+          channel: input.channel,
+          nuvemshopFeePercent: settings.nuvemshopFeePercent,
+        });
+        const description = describeSaleItems(input.items, (pid) => getProduct(pid)?.name);
 
         // Sempre atualiza a mesma transação de receita — nunca cria uma segunda.
         updateTransaction(
           existing.transactionId,
-          buildIncomeTransactionInput({
-            date: input.date,
-            totalAmount: input.totalAmount,
-            productName: product?.name ?? "Produto",
-            channel: input.channel,
-            saleId: id,
-          })
+          buildIncomeTransactionInput({ date: input.date, totalAmount: breakdown.totalAmount, description, channel: input.channel, saleId: id })
         );
 
-        // Mesma decisão usada na criação — nunca duplica a despesa de frete
-        // ao editar, e desvincula/remove quando o custo é zerado.
-        const reconciliation = reconcileShippingExpense({
+        // Mesma decisão usada na criação — nunca duplica frete/taxa ao
+        // editar, e desvincula/remove quando o valor é zerado.
+        const shippingReconciliation = reconcileShippingExpense({
           saleId: id,
           date: input.date,
           shippingCost: input.shippingCost ?? 0,
-          productName: product?.name ?? "Produto",
+          description,
           existingShippingTransactionId: existing.shippingTransactionId,
         });
-
         let shippingTransactionId = existing.shippingTransactionId;
-        if (reconciliation.action === "update") {
-          updateTransaction(reconciliation.transactionId, reconciliation.input);
-        } else if (reconciliation.action === "create") {
-          shippingTransactionId = addTransaction(reconciliation.input).id;
-        } else if (reconciliation.action === "delete") {
-          deleteTransaction(reconciliation.transactionId);
+        if (shippingReconciliation.action === "update") {
+          updateTransaction(shippingReconciliation.transactionId, shippingReconciliation.input);
+        } else if (shippingReconciliation.action === "create") {
+          shippingTransactionId = addTransaction(shippingReconciliation.input).id;
+        } else if (shippingReconciliation.action === "delete") {
+          deleteTransaction(shippingReconciliation.transactionId);
           shippingTransactionId = undefined;
+        }
+
+        const feeReconciliation = reconcileNuvemshopFeeExpense({
+          saleId: id,
+          date: input.date,
+          feeAmount: breakdown.nuvemshopFeeAmount,
+          existingFeeTransactionId: existing.nuvemshopFeeTransactionId,
+        });
+        let nuvemshopFeeTransactionId = existing.nuvemshopFeeTransactionId;
+        if (feeReconciliation.action === "update") {
+          updateTransaction(feeReconciliation.transactionId, feeReconciliation.input);
+        } else if (feeReconciliation.action === "create") {
+          nuvemshopFeeTransactionId = addTransaction(feeReconciliation.input).id;
+        } else if (feeReconciliation.action === "delete") {
+          deleteTransaction(feeReconciliation.transactionId);
+          nuvemshopFeeTransactionId = undefined;
         }
 
         dispatch({
           type: "UPDATE_SALE",
           id,
-          changes: { ...input, shippingTransactionId },
+          changes: {
+            date: input.date,
+            contactId: input.contactId,
+            items: input.items,
+            discounts: input.discounts,
+            shippingAmount: breakdown.shippingAmount,
+            shippingCost: input.shippingCost,
+            nuvemshopFeeAmount: breakdown.nuvemshopFeeAmount || undefined,
+            totalAmount: breakdown.totalAmount,
+            channel: input.channel,
+            notes: input.notes,
+            shippingTransactionId,
+            nuvemshopFeeTransactionId,
+          },
           at: timestamp,
         });
       },
@@ -159,11 +206,12 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
         if (sale) {
           deleteTransaction(sale.transactionId);
           if (sale.shippingTransactionId) deleteTransaction(sale.shippingTransactionId);
+          if (sale.nuvemshopFeeTransactionId) deleteTransaction(sale.nuvemshopFeeTransactionId);
         }
         dispatch({ type: "DELETE_SALE", id });
       },
     }),
-    [state, dispatch, addTransaction, updateTransaction, deleteTransaction, getProduct]
+    [state, dispatch, addTransaction, updateTransaction, deleteTransaction, getProduct, settings.nuvemshopFeePercent]
   );
 
   return <SalesContext.Provider value={value}>{children}</SalesContext.Provider>;

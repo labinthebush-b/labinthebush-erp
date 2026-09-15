@@ -95,8 +95,7 @@ export async function getVendas(ctx: AiRequestContext, period: Period = {}) {
     vendas: inScope.map((s) => ({
       id: s.id,
       data: s.date,
-      produtoId: s.productId,
-      quantidade: s.quantity,
+      itens: s.items.map((item) => ({ produtoId: item.productId, quantidade: item.quantity })),
       valorTotalCentavos: s.totalAmount,
       valorTotalFormatado: formatCurrencyCents(s.totalAmount),
       canal: s.channel,

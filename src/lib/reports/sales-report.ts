@@ -1,6 +1,7 @@
 import type { Sale, SalesChannel } from "@/lib/sales/types";
 import type { Product } from "@/lib/catalog/types";
 import type { Contact } from "@/lib/contacts/types";
+import { allocateItemRevenue } from "@/lib/sales/calculations";
 import type { PeriodRange } from "./period-range";
 import { isWithinRange } from "./period-range";
 
@@ -39,10 +40,12 @@ export function buildSalesReport(
 
   const porProdutoMap = new Map<string, { faturamento: number; quantidade: number }>();
   for (const sale of inRange) {
-    const entry = porProdutoMap.get(sale.productId) ?? { faturamento: 0, quantidade: 0 };
-    entry.faturamento += sale.totalAmount;
-    entry.quantidade += sale.quantity;
-    porProdutoMap.set(sale.productId, entry);
+    for (const item of sale.items) {
+      const entry = porProdutoMap.get(item.productId) ?? { faturamento: 0, quantidade: 0 };
+      entry.faturamento += allocateItemRevenue(sale, item);
+      entry.quantidade += item.quantity;
+      porProdutoMap.set(item.productId, entry);
+    }
   }
   const porProduto = [...porProdutoMap.entries()]
     .map(([productId, v]) => ({ productId, nome: products.find((p) => p.id === productId)?.name ?? "Produto removido", ...v }))
@@ -62,11 +65,13 @@ export function buildSalesReport(
 
   const cuponsMap = new Map<string, { usos: number; faturamento: number }>();
   for (const sale of inRange) {
-    if (!sale.couponCode) continue;
-    const entry = cuponsMap.get(sale.couponCode) ?? { usos: 0, faturamento: 0 };
-    entry.usos += 1;
-    entry.faturamento += sale.totalAmount;
-    cuponsMap.set(sale.couponCode, entry);
+    for (const discount of sale.discounts) {
+      if (!discount.code) continue;
+      const entry = cuponsMap.get(discount.code) ?? { usos: 0, faturamento: 0 };
+      entry.usos += 1;
+      entry.faturamento += sale.totalAmount;
+      cuponsMap.set(discount.code, entry);
+    }
   }
   const cupons = [...cuponsMap.entries()]
     .map(([codigo, v]) => ({ codigo, ...v }))
