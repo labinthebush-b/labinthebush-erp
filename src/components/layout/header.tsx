@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Breadcrumbs } from "@/components/layout/breadcrumbs";
+import { EnvironmentBadge } from "@/components/layout/environment-badge";
 import { NotificationsMenu } from "@/components/layout/notifications-menu";
 import { QuickActionButton } from "@/components/layout/quick-action-button";
 import { UserMenu } from "@/components/layout/user-menu";
@@ -58,6 +59,7 @@ export function Header() {
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background px-4">
       <MobileNav />
       <Breadcrumbs />
+      <EnvironmentBadge />
 
       <div className="ml-auto flex items-center gap-2">
         <Button
