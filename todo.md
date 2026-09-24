@@ -4,7 +4,7 @@ Reestruturado em 2026-09-24 como backlog oficial para uso pelos agentes (branch 
 
 Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclusão, dependências e prioridade (Alta/Média/Baixa). `[ ]` pendente, `[x]` concluída.
 
-**T2.1 concluída** (2026-09-24, primeira tarefa com o novo fluxo) → **revisada pelo agente tester** → **T4.1 corrigida** (bug que a revisão encontrou). Próxima recomendada: **T2.4** ou **T2.2** (sem dependência externa); T1.1/T1.2/T1.3 seguem bloqueadas por credenciais/ações suas.
+**T2.1 concluída** → revisada → **T4.1 corrigida** → **T2.2 concluída** (2026-09-24, primeira execução completa do `loop.md`: Developer → verificação → Tester → aprovada de primeira, sem precisar de Fase 5). Próxima recomendada: **T2.4** (sem dependência externa); T1.1/T1.2/T1.3 seguem bloqueadas por credenciais/decisão sua; T2.3/T3.1/T3.2 dependem de dados no DEV (T1.2).
 
 ---
 
@@ -44,11 +44,14 @@ Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclus
 - **Dependências**: nenhuma.
 - **Prioridade**: Alta.
 
-### T2.2 — Testes para `lib/ai/proposals.ts` e `lib/ai/tools/transactions.ts`
+### T2.2 — Testes para `lib/ai/proposals.ts` e `lib/ai/tools/transactions.ts` — ✅ CONCLUÍDA (2026-09-24)
 - **Objetivo**: cobrir o fluxo propose/confirm/cancel de lançamento financeiro originado pela IA.
 - **Contexto**: mesmo motivo do T2.1 — é o código que efetivamente escreve dinheiro no Financeiro a partir de uma fonte externa, hoje sem nenhum teste.
 - **Critérios de conclusão**: teste cobre no mínimo: uma proposta pendente pode ser confirmada e vira uma transação real; uma proposta cancelada nunca vira transação; uma proposta expirada não pode mais ser confirmada; confirmar a mesma proposta duas vezes não duplica a transação. `npm test` passa.
-- **Dependências**: nenhuma (pode reaproveitar o padrão de mock de T2.1).
+- **Resultado**: `src/lib/ai/proposals.test.ts` (8 testes — CRUD da proposta, isolamento por usuário) + `src/lib/ai/tools/transactions.test.ts` (13 testes — propose/confirm/cancel usando `proposals.ts` real, não mockado, com um fake de client multi-tabela cobrindo `ai_action_proposals`/`custom_categories`/`transactions`). Os 4 critérios pedidos estão cobertos, mais: sugestão de categoria, rejeição de `amount`/`description` inválidos, isolamento entre usuários na cadeia propose→confirm, `dueDate` vencido vs. futuro. Implementação **não** foi alterada.
+- **Revisão do Tester**: **aprovada**. Verificação independente por mutação: removendo as guardas de status/expiração de `confirmTransaction`, 3 testes falham; removendo o filtro de `user_id` em `getOwnProposal`, 2 testes falham (um em cada arquivo). Achado durante a implementação: o fake de datas usava timestamps fixos de 2026-01-01, já no passado em relação ao relógio real — corrigido para gerar `created_at`/`expires_at` relativos a `Date.now()`.
+- **Ponto de atenção registrado (não bloqueante)**: `cancelTransaction` numa proposta **já confirmada** é um no-op correto (não desfaz a transação, não sobrescreve o status), mas devolve a mesma mensagem de sucesso ("Proposta cancelada. Nada foi registrado.") de um cancelamento real — pode confundir quem lê a resposta sem saber que era um no-op. Não é um bug de dados/segurança, é clareza de mensagem; não corrigido nesta tarefa (fora do escopo de "adicionar testes").
+- **Dependências**: nenhuma.
 - **Prioridade**: Alta.
 
 ### T2.3 — Verificar RLS/policies ao vivo no Supabase DEV

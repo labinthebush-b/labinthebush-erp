@@ -10,6 +10,8 @@ _Quarta atualização, mesmo dia — chaves reais do projeto DEV recebidas e val
 
 _Quinta atualização, mesmo dia — migrations 0001+0002+0003 aplicadas manualmente no DEV (pelo usuário); validação completa do schema real contra o código, e `npm test`/`npm run lint`/`npm run build` rodados. Nenhuma incompatibilidade encontrada._
 
+_Décima atualização, mesmo dia — **T2.2 concluída**: primeira execução completa do `loop.md` (Developer → verificação independente → Tester → aprovada de primeira). Testes novos: `src/lib/ai/proposals.test.ts` (8) + `src/lib/ai/tools/transactions.test.ts` (13) = 21 testes cobrindo o fluxo propose→confirm→cancel de lançamento financeiro via IA, incluindo os 4 critérios pedidos (confirma pendente, cancelada nunca vira transação, expirada não confirma, dupla confirmação não duplica) mais isolamento entre usuários e sugestão de categoria. Suíte: 265 → 286. `npm run lint` limpo, `npm run build` ok. Implementação (`proposals.ts`, `tools/transactions.ts`) **não** foi alterada. Verificado por mutação (própria e independente do Tester): guardas de status/expiração e filtro de `user_id` são realmente detectados se removidos. Achado corrigido durante a implementação: fake de datas usava timestamp fixo já expirado — corrigido para `Date.now()`-relativo. Achado registrado, não bloqueante: `cancelTransaction` numa proposta já confirmada é um no-op correto mas com mensagem de sucesso genérica (clareza, não bug)._
+
 _Nona atualização, mesmo dia — **T4.1 corrigida**: o `last_used_at` de `resolveUserIdFromApiKey` agora é best-effort de verdade. Uma rejeição de promise (falha de transporte) na gravação derrubava a autenticação de uma chave já validada; agora um `try/catch` envolve **apenas** essa gravação. 2 testes novos provam os 4 cenários (UPDATE ok / `{ error }` / promise rejeitada / chave inválida), mais um teste-guarda garantindo que uma falha na **consulta** continua propagando (uma chave não verificada nunca pode virar autenticação ok). Verificado por mutação: o teste novo falha contra a implementação antiga. Suíte 265/265, lint limpo, build ok. Migration 0002 e policies RLS intocadas._
 
 _Oitava atualização, mesmo dia — **revisão de T2.1 pelo agente tester** (`.claude/agents/tester.md`, criado nesta etapa). Teste de mutação confirmou que os 18 testes detectam as 5 quebras centrais (filtros por usuário, guarda de prefixo, gravação de last_used_at, vazamento da chave crua). Nenhum teste decorativo, nenhum bug de isolamento. Encontrou 1 problema real (corrigido na nona atualização), 2 lacunas de cobertura (ordenação de `listApiKeys` e algoritmo de hash não travados por asserção) e 6 pontos de atenção — entre eles: `ai_api_keys` não tem policy de UPDATE (funciona só via service-role), isolamento entre usuários provado só na camada de aplicação (RLS continua pendente em T2.3), e `crypto.subtle` exigir contexto seguro no navegador._
@@ -100,8 +102,8 @@ Nenhum bug de cálculo/lógica encontrado. Riscos operacionais reais:
 
 ## Tests
 
-Unit (lógica pura — cálculos, reducers, mapeamento de categorias/heurísticas + autenticação por API key da integração com IA):
-PASS — 265/265 (32 arquivos), `tsc` limpo, `eslint` limpo, `next build` ok.
+Unit (lógica pura — cálculos, reducers, mapeamento de categorias/heurísticas + autenticação por API key e fluxo propose/confirm/cancel da integração com IA):
+PASS — 286/286 (34 arquivos), `tsc` limpo, `eslint` limpo, `next build` ok.
 
 Integration (repository.ts contra banco real ou mockado):
 NÃO EXISTE — nenhum repository tem teste. (`lib/ai/keys.ts` já tem teste com client Supabase falso desde T2.1, mas não é um repository de domínio.)
