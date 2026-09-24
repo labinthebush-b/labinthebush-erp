@@ -1,0 +1,76 @@
+# ERP Development Progress
+
+_Atualizado em 2026-09-24 a partir de uma auditoria completa do projeto (branch `dev`, commit `4c07f45`). Nenhum código/banco foi alterado nesta auditoria._
+
+## Current phase
+
+Pós-Fase 6 (deploy já aprovado e feito em produção) — expansão pós-deploy: Integração com IA + Vendas multi-produto, desenvolvidas na branch `dev`, aguardando ambiente de DEV utilizável antes de qualquer teste real ou promoção para `main`.
+
+## Current objective
+
+Destravar o ambiente DEV (repositório remoto sincronizado + Supabase de DEV) e então validar de verdade (contra banco real) o que hoje só tem teste de lógica em memória: Vendas multi-produto e a integração com IA.
+
+## Completed (em produção / `main`)
+
+- [x] Dashboard
+- [x] Financeiro (transações, categorias, parcelamento, recorrência, fechamento mensal, histórico de edição)
+- [x] Produtos (catálogo, custo, simulação de margem)
+- [x] Vendas (versão de um produto por venda, cupom único, frete)
+- [x] Contatos (CRM + pipeline)
+- [x] Tarefas (kanban/lista, filtros, notificações)
+- [x] Canvas (Supabase Storage)
+- [x] Configurações
+- [x] Relatórios (financeiro, produtos, vendas, contatos)
+- [x] Planejamento (aportes/reservas, orçamento por categoria)
+- [x] Backup (export JSON)
+- [x] Autenticação (Supabase Auth) + RLS
+- [x] Deploy em produção (Vercel) — https://labinthebush-erp-5kgm.vercel.app
+
+## In progress (só em `dev`, não mesclado)
+
+- [ ] Vendas: múltiplos produtos por venda, descontos acumulativos, taxa Nuvemshop — código completo e testado (lógica pura), mas a migration 0003 (`sale_items`) nunca foi aplicada em nenhum banco. **Sem nenhuma verificação contra um banco real ainda.**
+- [ ] Integração com IA via MCP (`/api/mcp`) — consulta + propose/confirm de lançamento. Migration 0002 já aplicada em produção (tabelas existem, código não). **Nunca testada ponta-a-ponta com uma chave de API real.**
+- [ ] Estrutura DEV/PROD (branches, selo de ambiente, `ENVIRONMENTS.md`) — pronta em `dev`, mas o Supabase de DEV combinado ainda não foi criado.
+
+## Known bugs
+
+Nenhum bug de cálculo/lógica encontrado. Riscos operacionais reais:
+
+- [ ] `dev` nunca foi enviada ao GitHub (sem upstream) — 4 commits só existem localmente, sem backup remoto.
+- [ ] `main` local está 1 commit à frente de `origin/main` (correção de env var já publicada via Vercel CLI, nunca enviada ao Git).
+- [ ] `.env.local` ainda aponta para o Supabase de **produção** — não há Supabase de DEV configurado.
+- [ ] `lib/ai/keys.ts`, `lib/ai/proposals.ts`, `lib/ai/tools/*` (autenticação por chave + escrita de lançamento financeiro) sem nenhum teste — maior risco, menor cobertura do projeto.
+- [ ] Nenhum repository.ts (de nenhum módulo) tem teste próprio — a lógica de compatibilidade legada (`legacyRowToItems`/`legacyRowToDiscounts`) está sem cobertura.
+- [ ] `README.md` é o boilerplate padrão do `create-next-app`, não descreve o projeto real.
+
+## Pending
+
+- [ ] Criar o projeto Supabase de DEV e aplicar as migrations 0001–0003 nele.
+- [ ] Enviar `dev` para o GitHub; sincronizar `main` com `origin/main`.
+- [ ] Verificar/ajustar as environment variables do ambiente Preview da Vercel para nunca apontarem para o Supabase de produção.
+- [ ] Testar Vendas multi-produto e a integração de IA contra o Supabase de DEV.
+- [ ] Adicionar testes para `lib/ai/keys.ts`/`proposals.ts`/`tools/*` e ao menos um teste de repository.
+- [ ] Só depois disso: aprovação explícita → merge `dev` → `main` → deploy.
+
+## Tests
+
+Unit (lógica pura — cálculos, reducers, mapeamento de categorias/heurísticas):
+PASS — 245/245 (31 arquivos), `tsc` limpo, `eslint` limpo, `next build` ok.
+
+Integration (repository.ts contra banco real ou mockado):
+NÃO EXISTE — nenhum repository tem teste.
+
+E2E:
+NÃO EXISTE — nenhuma ferramenta (Playwright/Cypress) configurada.
+
+## Last changes
+
+- `4c07f45` Migration 0003: sale_items relacional em vez de items jsonb (branch `dev`)
+- `c48a1d4` Estrutura DEV/PROD: branch dev, selo de ambiente, .env.local.example versionado
+- `58aa13e` Vendas: múltiplos produtos por venda, descontos acumulativos e taxa Nuvemshop
+- `dfb4dac` Integração com IA (ChatGPT/Claude) via MCP — consulta + lançamento com confirmação
+- `2beb893` (main, produção) Corrige env vars ausentes no bundle do cliente em produção
+
+## Next action
+
+Ver `todo.md` — a ordem recomendada começa por destravar o ambiente (push de `dev`, sync de `main`, criação do Supabase de DEV) antes de qualquer novo código.
