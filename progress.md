@@ -4,14 +4,20 @@ _Atualizado em 2026-09-24 a partir de uma auditoria completa do projeto (branch 
 
 _Segunda atualização, mesmo dia — diagnóstico operacional de preparação do ambiente DEV (branch `dev`, commit `090ae36`). Só leitura: `git fetch` e checagens REST somente-leitura no Supabase. Nenhum código, migration ou dado alterado._
 
+_Terceira atualização, mesmo dia — projeto Supabase de DEV criado ("DEV-Lab in the bush", `wyhrsizevngjqbbynkou`) e `.env.local` local reconfigurado para apontar para ele. Produção não foi tocada._
+
 ## Preparação do ambiente — estado atual
 
 - ✅ `main` local sincronizada com `origin/main` (o push pendente da correção de env var já chegou ao GitHub).
 - ❌ `dev` continua sem upstream — 5 commits só existem nesta máquina (`git push -u origin dev` ainda bloqueado: `403 denied to Dinossaurkillerjr`, credencial antiga em cache). **Bloqueado por um token/autorização do GitHub.**
-- ❌ Supabase de DEV ainda não existe — `.env.local` continua apontando para produção (`rzxtkwdbgvunosrhsuhc`). **Bloqueado por você criar o projeto e passar as credenciais.**
-- ✅ Reconfirmado ao vivo: produção tem 0001+0002 aplicadas; 0003 não está aplicada em lugar nenhum (`sale_items` 404, `sales.discounts` inexistente).
+- ✅ Projeto Supabase de DEV **criado** ("DEV-Lab in the bush", `https://wyhrsizevngjqbbynkou.supabase.co`) — confirmado ao vivo que responde (401 sem key, como esperado para um projeto que existe).
+- ✅ `.env.local` reconfigurado para apontar para o DEV: `NEXT_PUBLIC_SUPABASE_URL` trocado para a URL do projeto novo. As credenciais de produção antigas foram salvas em `.env.local.backup-prod` (gitignored, não commitado) antes da troca — nada foi apagado de forma irreversível.
+- ⏸️ `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` do projeto DEV ainda são placeholders (`PENDENTE-...`) — **bloqueado por você me passar essas duas chaves** (Project Settings → API no dashboard do projeto DEV). Nenhum valor foi inventado.
+- ✅ Verificado: `npm run dev` inicia normalmente com essa configuração (testado na porta 3458 — `/login` responde 200, `/` redireciona 307 como esperado). A ausência das duas chaves não trava o app: cai sempre no estado "não autenticado", nunca tenta nem consegue falar com produção (a URL nem é mais a de produção).
+- ❌ Conexão real com o Supabase DEV ainda **não funciona** — só vai funcionar depois que as duas chaves pendentes forem preenchidas.
+- ✅ Reconfirmado: produção tem 0001+0002 aplicadas; 0003 não está aplicada em lugar nenhum (nem em produção, nem no DEV ainda — nenhuma migration foi executada nesta etapa).
 - ℹ️ Não existe `supabase/config.toml` — projeto nunca foi `supabase link`ado; migrations em produção foram coladas manualmente no SQL Editor. Mesmo método planejado para o DEV.
-- ✅ As 4 env vars reais do app (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_ENV`) estão todas documentadas em `.env.local.example`, corretamente versionado.
+- ✅ As 4 env vars reais do app (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_ENV`) continuam com os mesmos nomes — nenhuma renomeação feita nesta etapa, como pedido.
 - ⏸️ Environment variables do ambiente Preview da Vercel — ainda não verificadas (depende de um token da Vercel, não pedido nesta etapa).
 
 ## Current phase
