@@ -109,8 +109,17 @@ export async function resolveUserIdFromApiKey(rawKey: string, adminClient: AnySu
   if (error) throw error;
   if (!data) return null;
 
-  // Best-effort — a failure to update last_used_at must never block the actual request.
-  await adminClient.from("ai_api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", data.id);
+  // Best-effort — a failure to update last_used_at must never block the actual
+  // request. Two different failure modes have to be swallowed here: PostgREST
+  // returning `{ error }` (ignored by simply not checking it) and the request
+  // rejecting outright (a transport/network failure), which would otherwise
+  // propagate and fail an authentication that has already succeeded above.
+  try {
+    await adminClient.from("ai_api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", data.id);
+  } catch {
+    // Intencionalmente silencioso: `last_used_at` é informativo (mostrado em
+    // Configurações), nunca parte da decisão de autenticação.
+  }
 
   return data.user_id as string;
 }

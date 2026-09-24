@@ -10,6 +10,10 @@ _Quarta atualização, mesmo dia — chaves reais do projeto DEV recebidas e val
 
 _Quinta atualização, mesmo dia — migrations 0001+0002+0003 aplicadas manualmente no DEV (pelo usuário); validação completa do schema real contra o código, e `npm test`/`npm run lint`/`npm run build` rodados. Nenhuma incompatibilidade encontrada._
 
+_Nona atualização, mesmo dia — **T4.1 corrigida**: o `last_used_at` de `resolveUserIdFromApiKey` agora é best-effort de verdade. Uma rejeição de promise (falha de transporte) na gravação derrubava a autenticação de uma chave já validada; agora um `try/catch` envolve **apenas** essa gravação. 2 testes novos provam os 4 cenários (UPDATE ok / `{ error }` / promise rejeitada / chave inválida), mais um teste-guarda garantindo que uma falha na **consulta** continua propagando (uma chave não verificada nunca pode virar autenticação ok). Verificado por mutação: o teste novo falha contra a implementação antiga. Suíte 265/265, lint limpo, build ok. Migration 0002 e policies RLS intocadas._
+
+_Oitava atualização, mesmo dia — **revisão de T2.1 pelo agente tester** (`.claude/agents/tester.md`, criado nesta etapa). Teste de mutação confirmou que os 18 testes detectam as 5 quebras centrais (filtros por usuário, guarda de prefixo, gravação de last_used_at, vazamento da chave crua). Nenhum teste decorativo, nenhum bug de isolamento. Encontrou 1 problema real (corrigido na nona atualização), 2 lacunas de cobertura (ordenação de `listApiKeys` e algoritmo de hash não travados por asserção) e 6 pontos de atenção — entre eles: `ai_api_keys` não tem policy de UPDATE (funciona só via service-role), isolamento entre usuários provado só na camada de aplicação (RLS continua pendente em T2.3), e `crypto.subtle` exigir contexto seguro no navegador._
+
 _Sétima atualização, mesmo dia — **T2.1 concluída**: criado o agente `.claude/agents/developer.md` e adicionados 18 testes para `lib/ai/keys.ts` (`src/lib/ai/keys.test.ts`). Suíte: 263/263 (era 245). Lint limpo, build ok. A implementação de `keys.ts` **não** foi alterada. Achado: não existe chave "desativada/expirada" nesta implementação — revogar é apagar a linha (`ai_api_keys` não tem `revoked_at`/`expires_at`/`active`), então os testes cobrem o comportamento real em vez de um conceito inexistente. Primeira tarefa executada com o novo fluxo dev→teste→lint→build→commit; nada foi enviado ao GitHub, `main` e produção intocadas._
 
 _Sexta atualização, mesmo dia — `todo.md` reestruturado como backlog oficial (6 seções: infraestrutura/segurança, testes/qualidade, funcionalidades pendentes de validação, bugs/inconsistências, novas funcionalidades planejadas, melhorias futuras), cada item com objetivo/contexto/critérios/dependências/prioridade. Primeira tarefa executável escolhida: T2.1 (testes para `lib/ai/keys.ts`) — pequena, sem dependência externa, testa o fluxo dev→lint→teste→commit pela primeira vez nesta infraestrutura. Nenhum código alterado._
@@ -97,7 +101,7 @@ Nenhum bug de cálculo/lógica encontrado. Riscos operacionais reais:
 ## Tests
 
 Unit (lógica pura — cálculos, reducers, mapeamento de categorias/heurísticas + autenticação por API key da integração com IA):
-PASS — 263/263 (32 arquivos), `tsc` limpo, `eslint` limpo, `next build` ok.
+PASS — 265/265 (32 arquivos), `tsc` limpo, `eslint` limpo, `next build` ok.
 
 Integration (repository.ts contra banco real ou mockado):
 NÃO EXISTE — nenhum repository tem teste. (`lib/ai/keys.ts` já tem teste com client Supabase falso desde T2.1, mas não é um repository de domínio.)

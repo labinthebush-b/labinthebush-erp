@@ -4,7 +4,7 @@ Reestruturado em 2026-09-24 como backlog oficial para uso pelos agentes (branch 
 
 Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclusão, dependências e prioridade (Alta/Média/Baixa). `[ ]` pendente, `[x]` concluída.
 
-**T2.1 concluída em 2026-09-24** (primeira tarefa executada com o novo fluxo). Próxima recomendada: **T2.4** (também sem dependência externa) ou **T2.2**; T1.1/T1.2/T1.3 seguem bloqueadas por credenciais/ações suas.
+**T2.1 concluída** (2026-09-24, primeira tarefa com o novo fluxo) → **revisada pelo agente tester** → **T4.1 corrigida** (bug que a revisão encontrou). Próxima recomendada: **T2.4** ou **T2.2** (sem dependência externa); T1.1/T1.2/T1.3 seguem bloqueadas por credenciais/ações suas.
 
 ---
 
@@ -87,7 +87,14 @@ Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclus
 
 ## 4. Bugs ou inconsistências
 
-Nenhum bug de cálculo/lógica foi encontrado em nenhuma auditoria até agora. Dois pontos foram registrados como **observação arquitetural, não bug** (não bloqueiam nada, não estão quebrados) — mantidos aqui só para rastreabilidade, com a mesma classificação já dada quando foram encontrados:
+### T4.1 — `last_used_at` podia derrubar uma autenticação já válida — ✅ CORRIGIDA (2026-09-24)
+- **Objetivo**: garantir que uma falha ao gravar `last_used_at` nunca impeça a autenticação de uma API key que já foi validada.
+- **Contexto**: encontrado pela revisão do agente tester em T2.1. O comentário em `resolveUserIdFromApiKey` afirmava que a gravação é best-effort e *"must never block the actual request"*, mas isso só valia para o `{ error }` do PostgREST (ignorado por não ser checado). Uma **rejeição da promise** (falha de transporte) propagava e derrubava a autenticação — reproduzido pelo tester.
+- **Critérios de conclusão**: os 4 cenários provados por teste (UPDATE ok / UPDATE com `{ error }` / UPDATE rejeitando / chave inválida); `npm test`, `npm run lint` e `npm run build` passando.
+- **Resultado**: `try/catch` em volta **apenas** da gravação de `last_used_at` (11 linhas, sem alterar mais nada). 2 testes novos (total do arquivo: 18 → 20; suíte: 263 → 265). Verificado por mutação: o teste novo **falha** contra a implementação antiga com `Error: falha de transporte simulada no update`, e passa com a correção. Migration 0002 e policies RLS não foram tocadas.
+- **Prioridade**: era Alta (segurança/disponibilidade da autenticação).
+
+Fora isso, nenhum bug de cálculo/lógica foi encontrado em nenhuma auditoria até agora. Dois pontos foram registrados como **observação arquitetural, não bug** (não bloqueiam nada, não estão quebrados) — mantidos aqui só para rastreabilidade, com a mesma classificação já dada quando foram encontrados:
 
 - **`sale_items.product_id`/`sales.product_id` não verificam posse do produto pelo usuário, só existência da linha** (FK padrão do Postgres) — assim desde a Fase 3, não introduzido agora, não explorável pela UI atual (o navegador só envia IDs de produtos do próprio usuário). Só relevante se um dia uma API externa aceitar IDs arbitrários vindos do cliente.
 - **`upsertSales` apaga e reinsere os itens de uma venda em duas chamadas separadas**, não uma transação de banco única — uma falha de rede exatamente entre as duas chamadas deixaria a venda com zero itens até a próxima sincronização. Risco baixo (uso single-user, poucas edições).

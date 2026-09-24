@@ -52,7 +52,13 @@ type FakeDb = {
   queryCount: () => number;
 };
 
-function createFakeDb(options: { rows?: KeyRow[]; failOn?: Operation } = {}): FakeDb {
+/**
+ * `failOn` simula o que o PostgREST faz quando a query falha: a promise
+ * RESOLVE com `{ error }`. `rejectOn` simula uma falha de transporte (rede
+ * caiu, fetch abortado): a promise REJEITA. São modos de falha diferentes e o
+ * código reage a cada um de um jeito — por isso os dois existem aqui.
+ */
+function createFakeDb(options: { rows?: KeyRow[]; failOn?: Operation; rejectOn?: Operation } = {}): FakeDb {
   const rows: KeyRow[] = options.rows ? [...options.rows] : [];
   let queries = 0;
   let idCounter = 0;
@@ -101,8 +107,16 @@ function createFakeDb(options: { rows?: KeyRow[]; failOn?: Operation } = {}): Fa
       return { data: found, error: null };
     }
 
-    function first(): QueryResult {
-      const result = run();
+    /** Executa a query, mas rejeitando (em vez de resolver) quando `rejectOn` casa com a operação. */
+    function settle(): Promise<QueryResult> {
+      const op: Operation = operation ?? "select";
+      if (options.rejectOn === op) {
+        return Promise.reject(new Error(`falha de transporte simulada no ${op}`));
+      }
+      return Promise.resolve(run());
+    }
+
+    function firstOf(result: QueryResult): QueryResult {
       if (result.error) return result;
       const list = result.data as KeyRow[];
       return { data: list[0] ?? null, error: null };
@@ -135,16 +149,17 @@ function createFakeDb(options: { rows?: KeyRow[]; failOn?: Operation } = {}): Fa
         descending = orderOptions?.ascending === false;
         return builder;
       },
-      single: () => {
-        const result = first();
-        // PostgREST devolve erro quando .single() não encontra exatamente uma linha.
-        if (!result.error && result.data === null) {
-          return Promise.resolve({ data: null, error: { message: "nenhuma linha encontrada" } });
-        }
-        return Promise.resolve(result);
-      },
-      maybeSingle: () => Promise.resolve(first()),
-      then: (onFulfilled, onRejected) => Promise.resolve(run()).then(onFulfilled, onRejected),
+      single: () =>
+        settle().then((raw) => {
+          const result = firstOf(raw);
+          // PostgREST devolve erro quando .single() não encontra exatamente uma linha.
+          if (!result.error && result.data === null) {
+            return { data: null, error: { message: "nenhuma linha encontrada" } };
+          }
+          return result;
+        }),
+      maybeSingle: () => settle().then(firstOf),
+      then: (onFulfilled, onRejected) => settle().then(onFulfilled, onRejected),
     };
 
     return builder;
@@ -256,14 +271,31 @@ describe("resolveUserIdFromApiKey", () => {
     await expect(resolveUserIdFromApiKey("sk_erp_abc", db.client)).rejects.toBeDefined();
   });
 
-  it("falha ao gravar last_used_at não impede a autenticação (best-effort)", async () => {
+  it("last_used_at devolvendo { error } não impede a autenticação (best-effort)", async () => {
     const seeded = createFakeDb();
     const { rawKey } = await createApiKey(USER, "Claude", seeded.client);
 
-    // Mesmo estado, mas agora toda UPDATE falha.
+    // Mesmo estado, mas agora toda UPDATE responde com erro do PostgREST.
     const db = createFakeDb({ rows: seeded.rows, failOn: "update" });
 
     expect(await resolveUserIdFromApiKey(rawKey, db.client)).toBe(USER);
+  });
+
+  it("last_used_at rejeitando a promise (falha de transporte) não impede a autenticação", async () => {
+    const seeded = createFakeDb();
+    const { rawKey } = await createApiKey(USER, "Claude", seeded.client);
+
+    // A consulta da chave funciona, mas a gravação do último uso cai na rede.
+    const db = createFakeDb({ rows: seeded.rows, rejectOn: "update" });
+
+    expect(await resolveUserIdFromApiKey(rawKey, db.client)).toBe(USER);
+  });
+
+  it("o best-effort cobre só a gravação: uma falha de transporte na CONSULTA ainda propaga", async () => {
+    // Guarda contra "consertar" o caso acima engolindo o erro da função inteira:
+    // uma chave que não pôde ser verificada nunca pode virar autenticação ok.
+    const db = createFakeDb({ rejectOn: "select" });
+    await expect(resolveUserIdFromApiKey("sk_erp_abc", db.client)).rejects.toThrow("falha de transporte");
   });
 });
 
