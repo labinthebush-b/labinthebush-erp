@@ -2,6 +2,18 @@
 
 _Atualizado em 2026-09-24 a partir de uma auditoria completa do projeto (branch `dev`, commit `4c07f45`). Nenhum código/banco foi alterado nesta auditoria._
 
+_Segunda atualização, mesmo dia — diagnóstico operacional de preparação do ambiente DEV (branch `dev`, commit `090ae36`). Só leitura: `git fetch` e checagens REST somente-leitura no Supabase. Nenhum código, migration ou dado alterado._
+
+## Preparação do ambiente — estado atual
+
+- ✅ `main` local sincronizada com `origin/main` (o push pendente da correção de env var já chegou ao GitHub).
+- ❌ `dev` continua sem upstream — 5 commits só existem nesta máquina (`git push -u origin dev` ainda bloqueado: `403 denied to Dinossaurkillerjr`, credencial antiga em cache). **Bloqueado por um token/autorização do GitHub.**
+- ❌ Supabase de DEV ainda não existe — `.env.local` continua apontando para produção (`rzxtkwdbgvunosrhsuhc`). **Bloqueado por você criar o projeto e passar as credenciais.**
+- ✅ Reconfirmado ao vivo: produção tem 0001+0002 aplicadas; 0003 não está aplicada em lugar nenhum (`sale_items` 404, `sales.discounts` inexistente).
+- ℹ️ Não existe `supabase/config.toml` — projeto nunca foi `supabase link`ado; migrations em produção foram coladas manualmente no SQL Editor. Mesmo método planejado para o DEV.
+- ✅ As 4 env vars reais do app (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_ENV`) estão todas documentadas em `.env.local.example`, corretamente versionado.
+- ⏸️ Environment variables do ambiente Preview da Vercel — ainda não verificadas (depende de um token da Vercel, não pedido nesta etapa).
+
 ## Current phase
 
 Pós-Fase 6 (deploy já aprovado e feito em produção) — expansão pós-deploy: Integração com IA + Vendas multi-produto, desenvolvidas na branch `dev`, aguardando ambiente de DEV utilizável antes de qualquer teste real ou promoção para `main`.
