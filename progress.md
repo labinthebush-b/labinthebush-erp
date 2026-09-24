@@ -6,16 +6,18 @@ _Segunda atualização, mesmo dia — diagnóstico operacional de preparação d
 
 _Terceira atualização, mesmo dia — projeto Supabase de DEV criado ("DEV-Lab in the bush", `wyhrsizevngjqbbynkou`) e `.env.local` local reconfigurado para apontar para ele. Produção não foi tocada._
 
+_Quarta atualização, mesmo dia — chaves reais do projeto DEV recebidas e validadas; conexão local com o Supabase DEV confirmada funcionando. Ainda sem nenhuma migration aplicada nele (schema vazio, de propósito)._
+
 ## Preparação do ambiente — estado atual
 
 - ✅ `main` local sincronizada com `origin/main` (o push pendente da correção de env var já chegou ao GitHub).
 - ❌ `dev` continua sem upstream — 5 commits só existem nesta máquina (`git push -u origin dev` ainda bloqueado: `403 denied to Dinossaurkillerjr`, credencial antiga em cache). **Bloqueado por um token/autorização do GitHub.**
-- ✅ Projeto Supabase de DEV **criado** ("DEV-Lab in the bush", `https://wyhrsizevngjqbbynkou.supabase.co`) — confirmado ao vivo que responde (401 sem key, como esperado para um projeto que existe).
-- ✅ `.env.local` reconfigurado para apontar para o DEV: `NEXT_PUBLIC_SUPABASE_URL` trocado para a URL do projeto novo. As credenciais de produção antigas foram salvas em `.env.local.backup-prod` (gitignored, não commitado) antes da troca — nada foi apagado de forma irreversível.
-- ⏸️ `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` do projeto DEV ainda são placeholders (`PENDENTE-...`) — **bloqueado por você me passar essas duas chaves** (Project Settings → API no dashboard do projeto DEV). Nenhum valor foi inventado.
-- ✅ Verificado: `npm run dev` inicia normalmente com essa configuração (testado na porta 3458 — `/login` responde 200, `/` redireciona 307 como esperado). A ausência das duas chaves não trava o app: cai sempre no estado "não autenticado", nunca tenta nem consegue falar com produção (a URL nem é mais a de produção).
-- ❌ Conexão real com o Supabase DEV ainda **não funciona** — só vai funcionar depois que as duas chaves pendentes forem preenchidas.
-- ✅ Reconfirmado: produção tem 0001+0002 aplicadas; 0003 não está aplicada em lugar nenhum (nem em produção, nem no DEV ainda — nenhuma migration foi executada nesta etapa).
+- ✅ Projeto Supabase de DEV **criado** ("DEV-Lab in the bush", `https://wyhrsizevngjqbbynkou.supabase.co`).
+- ✅ `.env.local` totalmente reconfigurado para o DEV: URL, anon/publishable key e service_role/secret key (formato novo `sb_publishable_.../sb_secret_...`, mesmo padrão já usado em produção). Credenciais de produção antigas preservadas em `.env.local.backup-prod` (gitignored) — nada apagado de forma irreversível. Nomes das variáveis inalterados.
+- ✅ **Chaves validadas ao vivo** (checagens somente-leitura): anon key autentica mas não tem privilégio de admin (401 em endpoint admin, como deveria); service_role key autentica e tem privilégio de admin (200 no mesmo endpoint) — as duas chaves estão nos campos certos, nenhuma trocada.
+- ✅ **Conexão real com o Supabase DEV confirmada**: `npm run dev` rodado de verdade (porta 3460), `/login` responde 200, `/` redireciona 307, log sem erros (`proxy.ts: 7ms`, sem exceptions) — o app fala com o projeto DEV de ponta a ponta.
+- ℹ️ O schema do projeto DEV está **vazio** (nenhuma tabela) — confirmado via `products` retornando 404 (tabela não existe), não 401 (chave inválida). Esperado: nenhuma migration foi aplicada ainda, como pedido.
+- ✅ Reconfirmado: produção tem 0001+0002 aplicadas; 0003 não está aplicada em lugar nenhum (nem em produção, nem no DEV — nenhuma migration foi executada nesta etapa).
 - ℹ️ Não existe `supabase/config.toml` — projeto nunca foi `supabase link`ado; migrations em produção foram coladas manualmente no SQL Editor. Mesmo método planejado para o DEV.
 - ✅ As 4 env vars reais do app (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_ENV`) continuam com os mesmos nomes — nenhuma renomeação feita nesta etapa, como pedido.
 - ⏸️ Environment variables do ambiente Preview da Vercel — ainda não verificadas (depende de um token da Vercel, não pedido nesta etapa).
