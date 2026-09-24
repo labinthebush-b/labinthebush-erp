@@ -8,6 +8,24 @@ _Terceira atualização, mesmo dia — projeto Supabase de DEV criado ("DEV-Lab 
 
 _Quarta atualização, mesmo dia — chaves reais do projeto DEV recebidas e validadas; conexão local com o Supabase DEV confirmada funcionando. Ainda sem nenhuma migration aplicada nele (schema vazio, de propósito)._
 
+_Quinta atualização, mesmo dia — migrations 0001+0002+0003 aplicadas manualmente no DEV (pelo usuário); validação completa do schema real contra o código, e `npm test`/`npm run lint`/`npm run build` rodados. Nenhuma incompatibilidade encontrada._
+
+## Validação schema DEV × código (2026-09-24)
+
+Todas as 16 tabelas esperadas (13 da 0001 + 2 da 0002 + `sale_items` da 0003) existem no DEV, com exatamente as colunas e constraints das migrations — comparei via o schema OpenAPI do PostgREST (somente leitura) contra o TypeScript de cada `repository.ts`, coluna por coluna:
+
+- `products`, `contacts`, `transactions`: 17/12/18 colunas — 100% iguais a `ProductRow`/`ContactRow`/`TransactionRow`.
+- `sales`: 21 colunas, incluindo as novas da 0003 (`discounts`, `nuvemshop_fee_amount`, `nuvemshop_fee_transaction_id`); `product_id`/`quantity` confirmados **nullable** (fora da lista `required` do schema) — igual a `SaleRow`.
+- `sale_items`: 9 colunas, `product_id`/`quantity`/`unit_price`/`subtotal` confirmados **NOT NULL** — igual a `SaleItemRow` (2 colunas extras no banco, `created_at`/`updated_at`, que o tipo TS não declara porque o código nunca lê essas duas de volta — não é bug, é um `select("*")` com um tipo parcial, mesmo padrão já usado em `ai_action_proposals`).
+- `settings`: 8 colunas incluindo `nuvemshop_fee_bps` — igual a `SettingsRow`.
+- `ai_api_keys`/`ai_action_proposals`: colunas batem com os `select()` explícitos de `lib/ai/keys.ts`/`proposals.ts`.
+- Bucket de Storage `canvas-images` existe e é privado (`public: false`), como a migration 0001 espera.
+- **Nenhuma incompatibilidade, bug ou estrutura inesperada encontrada.**
+
+**Limitação honesta**: não consegui confirmar RLS/policies via leitura pura — o teste que realmente prova isolamento por usuário exige inserir uma linha e comparar visibilidade entre duas sessões (o que esta etapa pediu para não fazer, "somente leitura"). O texto da migration é byte-idêntico ao que já foi validado em produção com um usuário de teste descartável (sessão anterior), então a expectativa é a mesma proteção — mas isso ainda não foi reconfirmado ao vivo neste projeto DEV especificamente. Fica pendente para quando um teste de escrita for autorizado.
+
+`npm test`: 245/245 passando (31 arquivos). `npm run lint`: limpo. `npm run build`: sucesso, todas as 12 rotas compiladas. Nenhum código foi alterado.
+
 ## Preparação do ambiente — estado atual
 
 - ✅ `main` local sincronizada com `origin/main` (o push pendente da correção de env var já chegou ao GitHub).
