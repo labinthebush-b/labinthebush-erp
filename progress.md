@@ -10,6 +10,8 @@ _Quarta atualização, mesmo dia — chaves reais do projeto DEV recebidas e val
 
 _Quinta atualização, mesmo dia — migrations 0001+0002+0003 aplicadas manualmente no DEV (pelo usuário); validação completa do schema real contra o código, e `npm test`/`npm run lint`/`npm run build` rodados. Nenhuma incompatibilidade encontrada._
 
+_Sexta atualização, mesmo dia — `todo.md` reestruturado como backlog oficial (6 seções: infraestrutura/segurança, testes/qualidade, funcionalidades pendentes de validação, bugs/inconsistências, novas funcionalidades planejadas, melhorias futuras), cada item com objetivo/contexto/critérios/dependências/prioridade. Primeira tarefa executável escolhida: T2.1 (testes para `lib/ai/keys.ts`) — pequena, sem dependência externa, testa o fluxo dev→lint→teste→commit pela primeira vez nesta infraestrutura. Nenhum código alterado._
+
 ## Validação schema DEV × código (2026-09-24)
 
 Todas as 16 tabelas esperadas (13 da 0001 + 2 da 0002 + `sale_items` da 0003) existem no DEV, com exatamente as colunas e constraints das migrations — comparei via o schema OpenAPI do PostgREST (somente leitura) contra o TypeScript de cada `repository.ts`, coluna por coluna:
