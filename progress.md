@@ -10,6 +10,8 @@ _Quarta atualização, mesmo dia — chaves reais do projeto DEV recebidas e val
 
 _Quinta atualização, mesmo dia — migrations 0001+0002+0003 aplicadas manualmente no DEV (pelo usuário); validação completa do schema real contra o código, e `npm test`/`npm run lint`/`npm run build` rodados. Nenhuma incompatibilidade encontrada._
 
+_Sétima atualização, mesmo dia — **T2.1 concluída**: criado o agente `.claude/agents/developer.md` e adicionados 18 testes para `lib/ai/keys.ts` (`src/lib/ai/keys.test.ts`). Suíte: 263/263 (era 245). Lint limpo, build ok. A implementação de `keys.ts` **não** foi alterada. Achado: não existe chave "desativada/expirada" nesta implementação — revogar é apagar a linha (`ai_api_keys` não tem `revoked_at`/`expires_at`/`active`), então os testes cobrem o comportamento real em vez de um conceito inexistente. Primeira tarefa executada com o novo fluxo dev→teste→lint→build→commit; nada foi enviado ao GitHub, `main` e produção intocadas._
+
 _Sexta atualização, mesmo dia — `todo.md` reestruturado como backlog oficial (6 seções: infraestrutura/segurança, testes/qualidade, funcionalidades pendentes de validação, bugs/inconsistências, novas funcionalidades planejadas, melhorias futuras), cada item com objetivo/contexto/critérios/dependências/prioridade. Primeira tarefa executável escolhida: T2.1 (testes para `lib/ai/keys.ts`) — pequena, sem dependência externa, testa o fluxo dev→lint→teste→commit pela primeira vez nesta infraestrutura. Nenhum código alterado._
 
 ## Validação schema DEV × código (2026-09-24)
@@ -94,11 +96,11 @@ Nenhum bug de cálculo/lógica encontrado. Riscos operacionais reais:
 
 ## Tests
 
-Unit (lógica pura — cálculos, reducers, mapeamento de categorias/heurísticas):
-PASS — 245/245 (31 arquivos), `tsc` limpo, `eslint` limpo, `next build` ok.
+Unit (lógica pura — cálculos, reducers, mapeamento de categorias/heurísticas + autenticação por API key da integração com IA):
+PASS — 263/263 (32 arquivos), `tsc` limpo, `eslint` limpo, `next build` ok.
 
 Integration (repository.ts contra banco real ou mockado):
-NÃO EXISTE — nenhum repository tem teste.
+NÃO EXISTE — nenhum repository tem teste. (`lib/ai/keys.ts` já tem teste com client Supabase falso desde T2.1, mas não é um repository de domínio.)
 
 E2E:
 NÃO EXISTE — nenhuma ferramenta (Playwright/Cypress) configurada.

@@ -4,7 +4,7 @@ Reestruturado em 2026-09-24 como backlog oficial para uso pelos agentes (branch 
 
 Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclusão, dependências e prioridade (Alta/Média/Baixa). `[ ]` pendente, `[x]` concluída.
 
-**Primeira tarefa executável recomendada: T2.1** (ver seção "Primeira tarefa executável" no fim do arquivo).
+**T2.1 concluída em 2026-09-24** (primeira tarefa executada com o novo fluxo). Próxima recomendada: **T2.4** (também sem dependência externa) ou **T2.2**; T1.1/T1.2/T1.3 seguem bloqueadas por credenciais/ações suas.
 
 ---
 
@@ -35,10 +35,12 @@ Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclus
 
 ## 2. Testes e qualidade
 
-### T2.1 — Testes para `lib/ai/keys.ts`
+### T2.1 — Testes para `lib/ai/keys.ts` — ✅ CONCLUÍDA (2026-09-24)
 - **Objetivo**: cobrir com teste automatizado a geração, hash, verificação e revogação de chaves de API — o código que autentica terceiros perante o ERP.
 - **Contexto**: identificado na auditoria como o código de maior risco (autenticação externa) com menor cobertura (zero testes hoje). Funções puras testáveis sem banco real: `hashApiKey`/geração de chave são determinísticas o suficiente para testar por round-trip (gerar → hash → comparar), e `resolveUserIdFromApiKey`/`createApiKey`/`listApiKeys`/`revokeApiKey` podem ser testadas com um client Supabase mockado (mesmo padrão que outros módulos usam para isolar lógica de I/O).
 - **Critérios de conclusão**: arquivo `lib/ai/keys.test.ts` criado; cobre no mínimo: uma chave gerada nunca é igual a outra, o hash da mesma chave é sempre igual, uma chave revogada não deveria mais resolver a um usuário; `npm test` passa; `npm run lint` limpo.
+- **Resultado**: `src/lib/ai/keys.test.ts` com **18 testes**, cobrindo as 4 funções exportadas (`createApiKey`, `resolveUserIdFromApiKey`, `listApiKeys`, `revokeApiKey`). `npm test` 263/263, `npm run lint` limpo, `npm run build` ok. Implementação **não** foi alterada.
+- **Achado registrado**: não existe conceito de chave "desativada"/"expirada" nesta implementação — `ai_api_keys` (migration 0002) não tem `revoked_at`/`expires_at`/`active`; revogar é apagar a linha. Os testes cobrem o comportamento real (revogação = exclusão), sem inventar expiração.
 - **Dependências**: nenhuma.
 - **Prioridade**: Alta.
 
