@@ -4,6 +4,10 @@ _Atualizado em 2026-09-24 a partir de uma auditoria completa do projeto (branch 
 
 _Segunda atualização, mesmo dia — diagnóstico operacional de preparação do ambiente DEV (branch `dev`, commit `090ae36`). Só leitura: `git fetch` e checagens REST somente-leitura no Supabase. Nenhum código, migration ou dado alterado._
 
+_Décima primeira atualização, 2026-09-29 — **T2.4 concluída**: primeira vez que a Fase 5 do `loop.md` (Tester encontra problema → Developer corrige → Tester reaprova) foi usada de verdade, não só validada em teoria. `src/lib/sales/repository.test.ts` (17 testes) cobre `fetchSales`/`upsertSales` — as únicas funções exportadas do módulo (a lógica de compatibilidade legada é privada, testada através delas). Suíte: 286 → 303. Tester encontrou cobertura insuficiente (não bug): faltavam os casos `quantity: 0` e o formato do `id` sintetizado; provou por mutação independente que eram discriminantes; Developer adicionou os 2 casos; Tester reaprovou. `npm run lint` limpo, `npm run build` ok. Implementação (`lib/sales/repository.ts`) **não** foi alterada em nenhum momento.
+
+Também nesta rodada: `TODO.md` já trazia uma seção 5 nova (T5.1 — módulo de Marketing/GA4/Meta, subtarefas a–f) adicionada pelo usuário fora desta sessão, junto com um `CONTEXTO_MARCA.md` (leitura externa do projeto, não gerado por mim). Segui a ordem estrita do `loop.md` — T5.1 vem depois da seção 2 no backlog e suas subtarefas de código dependem de acesso admin ao GA4/Meta que não foi fornecido — por isso a tarefa desta rodada foi T2.4, não T5.1. Nenhuma subtarefa de T5.1 foi iniciada._
+
 _Terceira atualização, mesmo dia — projeto Supabase de DEV criado ("DEV-Lab in the bush", `wyhrsizevngjqbbynkou`) e `.env.local` local reconfigurado para apontar para ele. Produção não foi tocada._
 
 _Quarta atualização, mesmo dia — chaves reais do projeto DEV recebidas e validadas; conexão local com o Supabase DEV confirmada funcionando. Ainda sem nenhuma migration aplicada nele (schema vazio, de propósito)._
@@ -103,10 +107,10 @@ Nenhum bug de cálculo/lógica encontrado. Riscos operacionais reais:
 ## Tests
 
 Unit (lógica pura — cálculos, reducers, mapeamento de categorias/heurísticas + autenticação por API key e fluxo propose/confirm/cancel da integração com IA):
-PASS — 286/286 (34 arquivos), `tsc` limpo, `eslint` limpo, `next build` ok.
+PASS — 303/303 (35 arquivos), `tsc` limpo, `eslint` limpo, `next build` ok.
 
 Integration (repository.ts contra banco real ou mockado):
-NÃO EXISTE — nenhum repository tem teste. (`lib/ai/keys.ts` já tem teste com client Supabase falso desde T2.1, mas não é um repository de domínio.)
+`lib/sales/repository.ts` tem teste desde T2.4 (fake multi-tabela `sales`+`sale_items`) — primeiro repository de domínio do projeto com cobertura. Os demais repositories continuam sem teste próprio.
 
 E2E:
 NÃO EXISTE — nenhuma ferramenta (Playwright/Cypress) configurada.

@@ -4,7 +4,7 @@ Reestruturado em 2026-09-24 como backlog oficial para uso pelos agentes (branch 
 
 Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclusão, dependências e prioridade (Alta/Média/Baixa). `[ ]` pendente, `[x]` concluída.
 
-**T2.1 concluída** → revisada → **T4.1 corrigida** → **T2.2 concluída** (2026-09-24, primeira execução completa do `loop.md`: Developer → verificação → Tester → aprovada de primeira, sem precisar de Fase 5). Próxima recomendada: **T2.4** (sem dependência externa); T1.1/T1.2/T1.3 seguem bloqueadas por credenciais/decisão sua; T2.3/T3.1/T3.2 dependem de dados no DEV (T1.2).
+**T2.1 concluída** → revisada → **T4.1 corrigida** → **T2.2 concluída** → **T2.4 concluída** (2026-09-29, primeira vez que a Fase 5 do `loop.md` foi usada de verdade: Tester achou cobertura insuficiente, Developer corrigiu, Tester reaprovou). Seção 2 fica só com **T2.3** (exige criar/apagar um usuário real no Supabase Auth do DEV — ação com efeito externo, não auto-executada sem aval explícito). T1.1/T1.2/T1.3 seguem bloqueadas por credenciais/decisão sua. **T5.1** (módulo de Marketing, seção 5) tem subtarefas a–f; nenhuma iniciada ainda — T5.1.c/d/e dependem de acesso admin ao GA4/Meta Business Manager que não foi fornecido.
 
 ---
 
@@ -61,11 +61,13 @@ Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclus
 - **Dependências**: T1.2 não é estritamente necessária, mas é mais simples fazer isso já com o banco populado.
 - **Prioridade**: Média (a expectativa de que funciona é alta, mas é a única lacuna de segurança ainda não fechada).
 
-### T2.4 — Teste de repository para a lógica de compatibilidade legada em Vendas
+### T2.4 — Teste de repository para a lógica de compatibilidade legada em Vendas — ✅ CONCLUÍDA (2026-09-29)
 - **Objetivo**: cobrir com teste a lógica que sintetiza itens/descontos de vendas antigas (`legacyRowToItems`/`legacyRowToDiscounts` em `lib/sales/repository.ts`).
 - **Contexto**: nenhum `repository.ts` do projeto tem teste próprio hoje. Essa lógica específica é a mais arriscada de todas: decide como uma venda antiga (uma coluna `product_id`/`quantity`) é lida como se fosse uma venda nova (lista de itens) — um erro aqui faria vendas antigas mudarem de comportamento silenciosamente.
 - **Critérios de conclusão**: teste cobre no mínimo: uma linha com `product_id`/`quantity`/`subtotal` legados (sem linhas em `sale_items`) gera exatamente um item com esses valores; uma linha com linhas em `sale_items` ignora as colunas legadas; uma linha com `discount` singular (legado) vira um array de um elemento; uma linha com `discounts` (array, novo) é usada como está. `npm test` passa.
-- **Dependências**: nenhuma (funções puras, sem precisar de banco).
+- **Resultado**: `src/lib/sales/repository.test.ts` com **17 testes**, exercitando `fetchSales`/`upsertSales` (as únicas funções exportadas — `legacyRowToItems`/`legacyRowToDiscounts`/`rowToSale`/`saleToRow` são privadas ao módulo) contra um fake de client cobrindo `sales` + `sale_items`. Os 4 critérios pedidos cobertos, mais: `unitPrice` legado com divisão não exata, venda sem `subtotal`/`quantity`, agrupamento correto de itens quando há múltiplas vendas, `upsertSales` nunca escreve nas colunas legadas e substitui os itens por completo ao editar (sem duplicar). Implementação **não** foi alterada.
+- **Revisão do Tester**: **aprovada** — mas só na segunda passagem (Fase 5 acionada uma vez). Primeira revisão encontrou **cobertura insuficiente** (não um bug): faltava o caso `quantity: 0` (diferente de `null`/`undefined` para o `??` do código; a implementação já trata isso corretamente, só não estava coberto) e o formato exato do `id` sintetizado (`<id-da-venda>-item-legado`). Provado por mutação independente do Tester que os dois casos são discriminantes. Developer adicionou os 2 testes ao arquivo oficial (17 no total); Tester reaprovou.
+- **Dependências**: nenhuma.
 - **Prioridade**: Média.
 
 ---
@@ -108,7 +110,22 @@ Nenhuma ação necessária agora — revisitar apenas se o projeto crescer para 
 
 ## 5. Novas funcionalidades já planejadas para o ERP
 
-Nenhuma funcionalidade nova, além das já cobertas nas seções 1–3 acima, está documentada em `CLAUDE.md`, `progress.md` ou nos docs de fase (`00_MASTER_CONTEXT.md` a `06_PHASE_6...md`) como planejada e ainda não iniciada. Todos os núcleos listados em `CLAUDE.md` (Caixa, Resultado/DRE, Fluxo de caixa, Capital do proprietário, Despesas, Vendas, Produtos, Contatos, Cupons, Taxas da Nuvemshop, Tarefas, Canvas, Relatórios, Dashboard) já têm pelo menos uma implementação — os dois itens ainda pendentes de validação (Vendas multi-produto, Integração com IA) estão na seção 3, não aqui. Esta seção fica intencionalmente vazia para não inventar escopo.
+Até 2026-09-29 esta seção estava vazia de propósito (nada além das seções 1–3 estava documentado em `CLAUDE.md`, `progress.md` ou nos docs de fase). A partir daqui, entra o que o usuário pediu explicitamente. Todos os núcleos de `CLAUDE.md` (Caixa, DRE, Vendas, Produtos, Cupons, Taxas da Nuvemshop, Dashboard etc.) já têm implementação; os itens pendentes de validação seguem na seção 3.
+
+### T5.1 — Módulo de Marketing: integrar Google Analytics (GA4) e Meta Business Manager ao ERP
+- **Objetivo**: trazer para dentro do ERP os números de marketing (tráfego, campanhas, gasto com anúncios) e cruzá-los com as vendas e o financeiro que o ERP já tem, para responder "quanto gastei para gerar esta venda" (CAC, ROAS, margem depois do gasto com anúncios).
+- **Contexto**: hoje o ERP conhece vendas por canal (incl. Nuvemshop) e despesas, mas não sabe de onde veio o cliente nem quanto foi gasto em anúncios. As duas fontes são APIs oficiais e documentadas: **Google Analytics Data API (GA4)** e **Meta Marketing API / Insights API** (via Business Manager, hoje "Business Portfolio"). A abordagem segue o padrão documentado por Google e Meta (plano de mensuração, convenção de UTM, dedupe Pixel + Conversions API); nada aqui foi reaproveitado de outro projeto. Pontos que dependem de decisão do usuário estão marcados como **[DECIDIR]**.
+- **Subtarefas** (executar em ordem; cada uma com commit próprio na branch `dev`):
+  - [ ] **T5.1.a — Plano de mensuração e convenção de UTM** (documento, sem código). Definir: quais eventos importam (GA4: `view_item`, `add_to_cart`, `begin_checkout`, `purchase`, marcados como *key events*), padrão único de `utm_source` / `utm_medium` / `utm_campaign` / `utm_content` (minúsculas, sem espaço) e onde cada campanha da marca aponta. Sem isso, os dados chegam sujos e o cruzamento com vendas não funciona.
+  - [ ] **T5.1.b — Confirmar a instrumentação da loja (Nuvemshop)**. Verificar que GA4 (ID de métrica `G-…`) e Pixel da Meta estão instalados e disparando `purchase` na loja; a Nuvemshop tem integração nativa para ambos. Checar no GA4 DebugView e no Meta Events Manager (Test Events). **[DECIDIR]** se ativa também a **Conversions API** da Meta (envio server-side com deduplicação por `event_id`), que recupera conversões perdidas por bloqueadores/iOS.
+  - [ ] **T5.1.c — Acesso somente leitura às APIs**. GA4: service account com papel *Viewer* na propriedade + Google Analytics Data API ativada. Meta: usuário de sistema no Business Manager com permissão `ads_read` apenas (nunca `ads_management` nesta fase). Tokens em variáveis de ambiente do servidor (nunca no client nem no repositório), separados entre DEV e PROD, seguindo o mesmo cuidado das env vars do Supabase (ver T1.3).
+  - [ ] **T5.1.d — Camada de dados**. Nova migration (0004) com tabelas de métricas diárias por fonte/campanha (ex.: `marketing_daily_metrics`), com `user_id` e RLS igual às demais tabelas; job/rota de sincronização idempotente (upsert por dia + campanha) para não duplicar em re-execuções.
+  - [ ] **T5.1.e — Tela "Marketing" no ERP**. Cards e gráficos: sessões e conversões (GA4), gasto, alcance, cliques e CPC por campanha (Meta), e as métricas derivadas **CAC**, **ROAS** e **gasto com anúncios como % da receita**. Regra de negócio: o gasto de anúncios pode ser lançado no Financeiro como despesa de Marketing **[DECIDIR]**: automático ou só conferência manual, para não duplicar lançamentos.
+  - [ ] **T5.1.f — Testes**. Funções puras (cálculo de CAC/ROAS, normalização de UTM, mapeamento de campanha → venda) com testes unitários, no mesmo padrão dos demais módulos; clients GA4/Meta mockados como nos testes de `lib/ai/`.
+- **Critérios de conclusão**: sincronização roda no DEV sem erro e sem duplicar; números da tela batem com o GA4 e com o Gerenciador de Anúncios da Meta para o mesmo período (conferência manual em 2–3 datas); `npm test`, `npm run lint` e `npm run build` passando; resultado documentado em `progress.md`.
+- **Conformidade**: LGPD. O ERP só consome métricas agregadas, não dados pessoais de visitantes; o banner de consentimento de cookies da loja continua sendo responsabilidade da Nuvemshop/loja.
+- **Dependências**: acesso de administrador às propriedades GA4 e ao Business Manager da marca (credenciais do usuário); T1.2 (dados de exemplo no DEV) facilita a validação das vendas cruzadas.
+- **Prioridade**: Média (não bloqueia nada existente; T5.1.a e T5.1.b não exigem código e podem começar já).
 
 ---
 
