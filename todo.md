@@ -4,7 +4,7 @@ Reestruturado em 2026-09-24 como backlog oficial para uso pelos agentes (branch 
 
 Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclusão, dependências e prioridade (Alta/Média/Baixa). `[ ]` pendente, `[x]` concluída.
 
-**T2.1 concluída** → revisada → **T4.1 corrigida** → **T2.2 concluída** → **T2.4 concluída** (2026-09-29, primeira vez que a Fase 5 do `loop.md` foi usada de verdade: Tester achou cobertura insuficiente, Developer corrigiu, Tester reaprovou). Seção 2 fica só com **T2.3** (exige criar/apagar um usuário real no Supabase Auth do DEV — ação com efeito externo, não auto-executada sem aval explícito). T1.1/T1.2/T1.3 seguem bloqueadas por credenciais/decisão sua. **T5.1** (módulo de Marketing, seção 5) tem subtarefas a–f; nenhuma iniciada ainda — T5.1.c/d/e dependem de acesso admin ao GA4/Meta Business Manager que não foi fornecido.
+**T2.1 concluída** → revisada → **T4.1 corrigida** → **T2.2 concluída** → **T2.4 concluída** (2026-09-29, primeira vez que a Fase 5 do `loop.md` foi usada de verdade: Tester achou cobertura insuficiente, Developer corrigiu, Tester reaprovou). Seção 2 fica só com **T2.3** (exige criar/apagar um usuário real no Supabase Auth do DEV — ação com efeito externo, não auto-executada sem aval explícito). T1.1/T1.2/T1.3 seguem bloqueadas por credenciais/decisão sua. **Módulo de Marketing** (seção 5) virou três tarefas em 2026-09-29 (a marca não roda anúncios, então a fonte "Meta" mudou de Marketing API para Instagram Graph API/orgânico): **T5.1** (GA4) já tem o acesso confirmado e funcionando (T5.1.c); **T5.2** (Instagram) ainda não tem nenhuma credencial; **T5.3** (camada de dados + tela, combina as duas) fica bloqueada até T5.1 e T5.2 estarem prontas.
 
 ---
 
@@ -112,20 +112,39 @@ Nenhuma ação necessária agora — revisitar apenas se o projeto crescer para 
 
 Até 2026-09-29 esta seção estava vazia de propósito (nada além das seções 1–3 estava documentado em `CLAUDE.md`, `progress.md` ou nos docs de fase). A partir daqui, entra o que o usuário pediu explicitamente. Todos os núcleos de `CLAUDE.md` (Caixa, DRE, Vendas, Produtos, Cupons, Taxas da Nuvemshop, Dashboard etc.) já têm implementação; os itens pendentes de validação seguem na seção 3.
 
-### T5.1 — Módulo de Marketing: integrar Google Analytics (GA4) e Meta Business Manager ao ERP
-- **Objetivo**: trazer para dentro do ERP os números de marketing (tráfego, campanhas, gasto com anúncios) e cruzá-los com as vendas e o financeiro que o ERP já tem, para responder "quanto gastei para gerar esta venda" (CAC, ROAS, margem depois do gasto com anúncios).
-- **Contexto**: hoje o ERP conhece vendas por canal (incl. Nuvemshop) e despesas, mas não sabe de onde veio o cliente nem quanto foi gasto em anúncios. As duas fontes são APIs oficiais e documentadas: **Google Analytics Data API (GA4)** e **Meta Marketing API / Insights API** (via Business Manager, hoje "Business Portfolio"). A abordagem segue o padrão documentado por Google e Meta (plano de mensuração, convenção de UTM, dedupe Pixel + Conversions API); nada aqui foi reaproveitado de outro projeto. Pontos que dependem de decisão do usuário estão marcados como **[DECIDIR]**.
-- **Subtarefas** (executar em ordem; cada uma com commit próprio na branch `dev`):
-  - [ ] **T5.1.a — Plano de mensuração e convenção de UTM** (documento, sem código). Definir: quais eventos importam (GA4: `view_item`, `add_to_cart`, `begin_checkout`, `purchase`, marcados como *key events*), padrão único de `utm_source` / `utm_medium` / `utm_campaign` / `utm_content` (minúsculas, sem espaço) e onde cada campanha da marca aponta. Sem isso, os dados chegam sujos e o cruzamento com vendas não funciona.
-  - [ ] **T5.1.b — Confirmar a instrumentação da loja (Nuvemshop)**. Verificar que GA4 (ID de métrica `G-…`) e Pixel da Meta estão instalados e disparando `purchase` na loja; a Nuvemshop tem integração nativa para ambos. Checar no GA4 DebugView e no Meta Events Manager (Test Events). **[DECIDIR]** se ativa também a **Conversions API** da Meta (envio server-side com deduplicação por `event_id`), que recupera conversões perdidas por bloqueadores/iOS.
-  - [ ] **T5.1.c — Acesso somente leitura às APIs**. GA4: service account com papel *Viewer* na propriedade + Google Analytics Data API ativada. Meta: usuário de sistema no Business Manager com permissão `ads_read` apenas (nunca `ads_management` nesta fase). Tokens em variáveis de ambiente do servidor (nunca no client nem no repositório), separados entre DEV e PROD, seguindo o mesmo cuidado das env vars do Supabase (ver T1.3).
-  - [ ] **T5.1.d — Camada de dados**. Nova migration (0004) com tabelas de métricas diárias por fonte/campanha (ex.: `marketing_daily_metrics`), com `user_id` e RLS igual às demais tabelas; job/rota de sincronização idempotente (upsert por dia + campanha) para não duplicar em re-execuções.
-  - [ ] **T5.1.e — Tela "Marketing" no ERP**. Cards e gráficos: sessões e conversões (GA4), gasto, alcance, cliques e CPC por campanha (Meta), e as métricas derivadas **CAC**, **ROAS** e **gasto com anúncios como % da receita**. Regra de negócio: o gasto de anúncios pode ser lançado no Financeiro como despesa de Marketing **[DECIDIR]**: automático ou só conferência manual, para não duplicar lançamentos.
-  - [ ] **T5.1.f — Testes**. Funções puras (cálculo de CAC/ROAS, normalização de UTM, mapeamento de campanha → venda) com testes unitários, no mesmo padrão dos demais módulos; clients GA4/Meta mockados como nos testes de `lib/ai/`.
-- **Critérios de conclusão**: sincronização roda no DEV sem erro e sem duplicar; números da tela batem com o GA4 e com o Gerenciador de Anúncios da Meta para o mesmo período (conferência manual em 2–3 datas); `npm test`, `npm run lint` e `npm run build` passando; resultado documentado em `progress.md`.
-- **Conformidade**: LGPD. O ERP só consome métricas agregadas, não dados pessoais de visitantes; o banner de consentimento de cookies da loja continua sendo responsabilidade da Nuvemshop/loja.
-- **Dependências**: acesso de administrador às propriedades GA4 e ao Business Manager da marca (credenciais do usuário); T1.2 (dados de exemplo no DEV) facilita a validação das vendas cruzadas.
-- **Prioridade**: Média (não bloqueia nada existente; T5.1.a e T5.1.b não exigem código e podem começar já).
+> **Alteração de escopo (2026-09-29)**: a marca hoje não roda anúncios — a fonte "Meta" deixa de ser a Marketing API (`ads_read`) e passa a ser a **Instagram Graph API**, lendo insights **orgânicos** do Instagram. Por isso o que era uma tarefa só (T5.1) virou três: **T5.1** (GA4, acesso já confirmado), **T5.2** (Instagram, acesso ainda pendente) e **T5.3** (camada de dados + tela + testes, compartilhada pelas duas fontes — só começa depois que T5.1 e T5.2 estiverem prontas).
+
+### T5.1 — Módulo de Marketing: Google Analytics (GA4) — ✅ acesso confirmado, aguardando T5.2 para a camada de dados
+- **Objetivo**: trazer para dentro do ERP os números de tráfego e conversão do GA4 (sessões, eventos-chave) para cruzar com vendas e financeiro.
+- **Contexto**: hoje o ERP conhece vendas por canal (incl. Nuvemshop) e despesas, mas não sabe de onde veio o tráfego. Fonte: **Google Analytics Data API (GA4)**, propriedade `556768654` da marca.
+- **Subtarefas**:
+  - [ ] **T5.1.a — Plano de mensuração e convenção de UTM** — pendente de definição pelo usuário (quais eventos importam: `view_item`, `add_to_cart`, `begin_checkout`, `purchase`; padrão de `utm_source`/`utm_medium`/`utm_campaign`/`utm_content`). Sem anúncios pagos, a prioridade cai para tráfego orgânico/Instagram e UTM manual em bio/stories.
+  - [ ] **T5.1.b — Confirmar a instrumentação da loja (Nuvemshop)** — confirmar que o GA4 está instalado e disparando `purchase` de verdade na loja (checar no DebugView). Ainda não verificado.
+  - [x] **T5.1.c — Acesso somente leitura à API** — **concluída em 2026-09-29**: conta de serviço (`erp-ga4-leitor@project-77c9ed61-55da-4a67-b82.iam.gserviceaccount.com`) com papel Viewer na propriedade `556768654`, Data API ativada, credenciais em `.env.local` (`GA4_SERVICE_ACCOUNT_EMAIL`/`GA4_SERVICE_ACCOUNT_PRIVATE_KEY`/`GA4_PROPERTY_ID`), acesso testado com uma chamada real a `runReport` (200 OK). Nada disso foi commitado.
+- **Dependências**: nenhuma para a/b (decisão + verificação manual); c concluída.
+- **Prioridade**: Média.
+
+### T5.2 — Módulo de Marketing: Instagram (Graph API, insights orgânicos) — nova, ainda não iniciada
+- **Objetivo**: trazer para dentro do ERP os insights orgânicos do Instagram da marca (alcance, impressões, engajamento) — não anúncios, já que a marca não anuncia hoje.
+- **Contexto**: a Marketing API/`ads_read` **não dá acesso a insights do Instagram** — é preciso a **Instagram Graph API**, com permissões diferentes. Pré-requisitos, segundo o usuário: a conta do Instagram da marca precisa ser **Profissional** (Comercial ou Criador), vinculada a uma **Página do Facebook**, e essa Página precisa estar no **Business Manager**. Posts anteriores à conversão para conta profissional não têm insights.
+- **Subtarefas**:
+  - [ ] **T5.2.a — Confirmar os pré-requisitos**: conta do Instagram já é Profissional? Já está vinculada a uma Página do Facebook? Essa Página já está no Business Manager da marca?
+  - [ ] **T5.2.b — Acesso somente leitura à API**: token de acesso com as permissões `instagram_basic`, `instagram_manage_insights`, `pages_read_engagement` e `ads_read` (esta última porque o acesso à Página passa pelo Business Manager). Guardar token e ID da conta do Instagram só em `.env.local`/Vercel, nunca no git nem no chat. **[EM ABERTO]**: verificar se ler a própria conta exige App Review da Meta (Advanced Access) ou se o modo de desenvolvimento (acesso "Standard"/próprio ativo do app) já é suficiente — não confirmado ainda; se descobrir que precisa de App Review, isso é um processo de aprovação da Meta que pode levar dias, registrar aqui antes de prosseguir.
+  - [ ] **T5.2.c — Plano de mensuração para Instagram**: quais insights importam (alcance, impressões, engajamento, cliques no link da bio) e como relacionar um post/story a uma venda (se for possível relacionar; pode ser só um indicador solto, sem cruzamento direto).
+- **Dependências**: acesso do usuário ao Instagram/Página/Business Manager da marca; resposta ao item [EM ABERTO] de App Review antes de codificar a chamada de fato.
+- **ID de conta de anúncios (`act_…`)**: fica opcional, só necessário se a marca começar a anunciar.
+- **Prioridade**: Média (não bloqueia nada existente).
+
+### T5.3 — Camada de dados + tela "Marketing" no ERP (combina GA4 + Instagram) — bloqueada até T5.1 e T5.2 estarem prontas
+- **Objetivo**: uma única tela "Marketing" no ERP com os números das duas fontes, e as métricas derivadas que fazem sentido sem anúncios pagos (ex.: tráfego/engajamento orgânico vs. vendas — CAC e ROAS deixam de fazer sentido sozinhos sem gasto de mídia; reavaliar quais métricas derivadas cabem quando chegar aqui).
+- **Subtarefas**:
+  - [ ] **T5.3.a — Camada de dados**: nova migration (0004) com tabela de métricas diárias por fonte (ex.: `marketing_daily_metrics`), `user_id` + RLS igual às demais tabelas; sincronização idempotente (upsert por dia) para não duplicar em re-execuções.
+  - [ ] **T5.3.b — Tela "Marketing" no ERP**: cards/gráficos com os números de GA4 e Instagram lado a lado.
+  - [ ] **T5.3.c — Testes**: funções puras (normalização de UTM, agregação por dia, o que for aplicável das métricas derivadas) com testes unitários, clients GA4/Instagram mockados como nos testes de `lib/ai/`.
+- **Critérios de conclusão**: sincronização roda no DEV sem erro e sem duplicar; números da tela batem com o GA4 e com o Instagram/Meta Business Suite para o mesmo período (conferência manual em 2–3 datas); `npm test`, `npm run lint` e `npm run build` passando; resultado documentado em `progress.md`.
+- **Conformidade**: LGPD. O ERP só consome métricas agregadas, não dados pessoais de visitantes/seguidores.
+- **Dependências**: T5.1 (GA4, acesso pronto) e T5.2 (Instagram, acesso ainda pendente).
+- **Prioridade**: Média.
 
 ---
 
