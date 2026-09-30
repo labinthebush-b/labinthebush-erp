@@ -4,7 +4,7 @@ Reestruturado em 2026-09-24 como backlog oficial para uso pelos agentes (branch 
 
 Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclusão, dependências e prioridade (Alta/Média/Baixa). `[ ]` pendente, `[x]` concluída.
 
-**T2.1 concluída** → revisada → **T4.1 corrigida** → **T2.2 concluída** → **T2.4 concluída** (2026-09-29, primeira vez que a Fase 5 do `loop.md` foi usada de verdade: Tester achou cobertura insuficiente, Developer corrigiu, Tester reaprovou). Seção 2 fica só com **T2.3** (exige criar/apagar um usuário real no Supabase Auth do DEV — ação com efeito externo, não auto-executada sem aval explícito). T1.1/T1.2/T1.3 seguem bloqueadas por credenciais/decisão sua. **Módulo de Marketing** (seção 5) virou três tarefas em 2026-09-29 (a marca não roda anúncios, então a fonte "Meta" mudou de Marketing API para Instagram Graph API/orgânico): **T5.1** (GA4) já tem o acesso confirmado e funcionando (T5.1.c); **T5.2** (Instagram) ainda não tem nenhuma credencial; **T5.3** (camada de dados + tela, combina as duas) fica bloqueada até T5.1 e T5.2 estarem prontas.
+**T2.1 concluída** → revisada → **T4.1 corrigida** → **T2.2 concluída** → **T2.4 concluída** (2026-09-29, primeira vez que a Fase 5 do `loop.md` foi usada de verdade: Tester achou cobertura insuficiente, Developer corrigiu, Tester reaprovou). Seção 2 fica só com **T2.3** (exige criar/apagar um usuário real no Supabase Auth do DEV — ação com efeito externo, não auto-executada sem aval explícito). T1.1/T1.2/T1.3 seguem bloqueadas por credenciais/decisão sua. **Módulo de Marketing** (seção 5) virou três tarefas em 2026-09-29 (a marca não roda anúncios, então a fonte "Meta" mudou de Marketing API para Instagram Graph API/orgânico): **T5.1** (GA4) e **T5.2** (Instagram) já têm o acesso confirmado e testado com chamadas reais (T5.1.c e T5.2.b); falta só o plano de mensuração de cada uma (T5.1.a/b, T5.2.c) e então **T5.3** (camada de dados + tela, combina as duas) pode começar.
 
 ---
 
@@ -124,14 +124,14 @@ Até 2026-09-29 esta seção estava vazia de propósito (nada além das seções
 - **Dependências**: nenhuma para a/b (decisão + verificação manual); c concluída.
 - **Prioridade**: Média.
 
-### T5.2 — Módulo de Marketing: Instagram (Graph API, insights orgânicos) — nova, ainda não iniciada
+### T5.2 — Módulo de Marketing: Instagram (Graph API, insights orgânicos) — acesso confirmado, plano de mensuração pendente
 - **Objetivo**: trazer para dentro do ERP os insights orgânicos do Instagram da marca (alcance, impressões, engajamento) — não anúncios, já que a marca não anuncia hoje.
 - **Contexto**: a Marketing API/`ads_read` **não dá acesso a insights do Instagram** — é preciso a **Instagram Graph API**, com permissões diferentes. Pré-requisitos, segundo o usuário: a conta do Instagram da marca precisa ser **Profissional** (Comercial ou Criador), vinculada a uma **Página do Facebook**, e essa Página precisa estar no **Business Manager**. Posts anteriores à conversão para conta profissional não têm insights.
 - **Subtarefas**:
-  - [ ] **T5.2.a — Confirmar os pré-requisitos**: conta do Instagram já é Profissional? Já está vinculada a uma Página do Facebook? Essa Página já está no Business Manager da marca?
-  - [ ] **T5.2.b — Acesso somente leitura à API**: token de acesso com as permissões `instagram_basic`, `instagram_manage_insights`, `pages_read_engagement` e `ads_read` (esta última porque o acesso à Página passa pelo Business Manager). Guardar token e ID da conta do Instagram só em `.env.local`/Vercel, nunca no git nem no chat. **[EM ABERTO]**: verificar se ler a própria conta exige App Review da Meta (Advanced Access) ou se o modo de desenvolvimento (acesso "Standard"/próprio ativo do app) já é suficiente — não confirmado ainda; se descobrir que precisa de App Review, isso é um processo de aprovação da Meta que pode levar dias, registrar aqui antes de prosseguir.
+  - [x] **T5.2.a — Confirmar os pré-requisitos** — confirmado implicitamente: a API respondeu com dados reais (`username: labinthebush`), o que só é possível com conta Profissional vinculada e Página no Business Manager.
+  - [x] **T5.2.b — Acesso somente leitura à API** — **concluída em 2026-09-29**: token com as 4 permissões testado com 2 chamadas reais — `GET /{ig-id}?fields=id,username,media_count` (instagram_basic, retornou `labinthebush`/10 posts) e `GET /{ig-id}/insights?metric=reach&period=day` (instagram_manage_insights, retornou alcance real de 643). Credenciais em `.env.local` (`INSTAGRAM_ACCOUNT_ID`/`INSTAGRAM_ACCESS_TOKEN`), nunca commitadas. **[EM ABERTO] resolvido**: nenhum erro de App Review/Advanced Access apareceu — o acesso "Standard" do app atual já é suficiente para ler a própria conta.
   - [ ] **T5.2.c — Plano de mensuração para Instagram**: quais insights importam (alcance, impressões, engajamento, cliques no link da bio) e como relacionar um post/story a uma venda (se for possível relacionar; pode ser só um indicador solto, sem cruzamento direto).
-- **Dependências**: acesso do usuário ao Instagram/Página/Business Manager da marca; resposta ao item [EM ABERTO] de App Review antes de codificar a chamada de fato.
+- **Dependências**: T5.2.c depende de decisão do usuário sobre quais métricas importam.
 - **ID de conta de anúncios (`act_…`)**: fica opcional, só necessário se a marca começar a anunciar.
 - **Prioridade**: Média (não bloqueia nada existente).
 
@@ -143,7 +143,7 @@ Até 2026-09-29 esta seção estava vazia de propósito (nada além das seções
   - [ ] **T5.3.c — Testes**: funções puras (normalização de UTM, agregação por dia, o que for aplicável das métricas derivadas) com testes unitários, clients GA4/Instagram mockados como nos testes de `lib/ai/`.
 - **Critérios de conclusão**: sincronização roda no DEV sem erro e sem duplicar; números da tela batem com o GA4 e com o Instagram/Meta Business Suite para o mesmo período (conferência manual em 2–3 datas); `npm test`, `npm run lint` e `npm run build` passando; resultado documentado em `progress.md`.
 - **Conformidade**: LGPD. O ERP só consome métricas agregadas, não dados pessoais de visitantes/seguidores.
-- **Dependências**: T5.1 (GA4, acesso pronto) e T5.2 (Instagram, acesso ainda pendente).
+- **Dependências**: T5.1.a/b (GA4: plano de mensuração + confirmar instrumentação da loja) e T5.2.c (Instagram: plano de mensuração) — os acessos das duas fontes (T5.1.c e T5.2.b) já estão prontos e testados.
 - **Prioridade**: Média.
 
 ---
