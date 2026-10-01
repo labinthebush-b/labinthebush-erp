@@ -14,6 +14,16 @@ Em seguida, o usuário decidiu uma mudança de escopo: a marca não roda anúnci
 
 _Décima terceira atualização, mesmo dia — **T5.2.b (Instagram) concluída**: acesso de leitura confirmado com 2 chamadas reais à Instagram Graph API. `GET /{ig-id}?fields=id,username,media_count` (permissão `instagram_basic`) retornou `{"username":"labinthebush","media_count":10}`; `GET /{ig-id}/insights?metric=reach&period=day` (permissão `instagram_manage_insights`) retornou alcance real (`643`). A questão que estava **[EM ABERTO]** — se ler a própria conta exige App Review/Advanced Access da Meta — está respondida: **não exigiu**, nenhum erro de permissão apareceu, o acesso Standard do app atual já é suficiente. Credenciais (`INSTAGRAM_ACCOUNT_ID`, `INSTAGRAM_ACCESS_TOKEN`) salvas só em `.env.local`, nunca commitadas. Com isso, T5.1 (GA4) e T5.2 (Instagram) têm os dois acessos prontos e testados — falta só o plano de mensuração de cada uma (T5.1.a/b, T5.2.c) para T5.3 (camada de dados + tela) poder começar. Nenhum código alterado._
 
+_Décima quarta atualização, 2026-10-01 — **Plano de mensuração (T5.1.a/T5.1.b/T5.2.c) proposto**, fechando o planejamento antes de T5.3. Nada de código, migration ou dado alterado — só leitura, teste e documentação, como pedido._
+
+_Higiene de credenciais_: `git check-ignore -v .env.local` confirma `.gitignore:35`; nenhuma das 7 variáveis de GA4/Instagram/Meta começa com `NEXT_PUBLIC_` (confirmado por nome, sem imprimir valor). Nenhuma chave impressa nesta sessão.
+
+_GA4_: consulta real aos últimos 7 dias — 14 sessões, 10 usuários totais/ativos. Eventos confirmados: `view_item` (3), `add_to_cart` (1), `begin_checkout` (1); **`purchase` não apareceu** no período — ponto real a resolver, teste de compra no DebugView é do usuário.
+
+_Instagram_: documentação oficial consultada antes de propor qualquer métrica (`ig-user/insights` e `ig-media/insights` do Instagram Graph API) — `impressions` está **descontinuada** (substituída por `views`; para mídia, descontinuada em conteúdo criado após 2/jul/2024); `follows_and_unfollows`/`follower_demographics`/`engaged_audience_demographics` exigem 100+ seguidores. 5 métricas de conta escolhidas e testadas com dado real: `reach` (81), `accounts_engaged` (10), `total_interactions` (13), `profile_links_taps` (0), `views` (131). 6 métricas de mídia testadas num post real (`reach` 685, `total_interactions` 56, `saved` 3, `shares` 6, `likes` 34, `comments` 7), mas recomendadas como fora do MVP — sem identificador compartilhado entre post e venda, relacionar os dois exigiria um processo manual de UTM por post que não existe hoje.
+
+Documento completo com fontes citadas, valores testados e a lista de decisões pendentes: `PLANO_MENSURACAO_MARKETING.md`. T5.3 (camada de dados + tela) **não foi iniciada** — aguarda aprovação do plano.
+
 _Terceira atualização, mesmo dia — projeto Supabase de DEV criado ("DEV-Lab in the bush", `wyhrsizevngjqbbynkou`) e `.env.local` local reconfigurado para apontar para ele. Produção não foi tocada._
 
 _Quarta atualização, mesmo dia — chaves reais do projeto DEV recebidas e validadas; conexão local com o Supabase DEV confirmada funcionando. Ainda sem nenhuma migration aplicada nele (schema vazio, de propósito)._
