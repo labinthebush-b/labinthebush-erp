@@ -14,8 +14,14 @@ export type FunnelMetric = {
   source: FunnelSource;
   /** undefined = a fonte não respondeu (mostra "—", nunca um zero falso). */
   value?: number;
-  /** % em relação à métrica anterior DO FUNIL INTEIRO (não só da etapa). */
+  /** % em relação à métrica anterior do CAMINHO PRINCIPAL (atravessa as etapas). */
   rateFromPrevious?: number;
+  /**
+   * false = indicador paralelo (engajamento, leads): aparece na etapa, mas não
+   * é um degrau do caminho até a compra — não tem taxa e não entra no cálculo
+   * da taxa do próximo número.
+   */
+  inPath: boolean;
 };
 
 export type FunnelStage = {
@@ -34,11 +40,15 @@ export type ErpFunnelInput = {
   receivableAmount: number;
 };
 
-function withRates(stages: FunnelStage[]): FunnelStage[] {
+type MetricInput = Omit<FunnelMetric, "rateFromPrevious">;
+type StageInput = Omit<FunnelStage, "metrics"> & { metrics: MetricInput[] };
+
+function withRates(stages: StageInput[]): FunnelStage[] {
   let previous: number | undefined;
   return stages.map((stage) => ({
     ...stage,
     metrics: stage.metrics.map((metric) => {
+      if (!metric.inPath) return { ...metric, rateFromPrevious: undefined };
       const rate = metric.value !== undefined && previous !== undefined && previous > 0 ? (metric.value / previous) * 100 : undefined;
       if (metric.value !== undefined) previous = metric.value;
       else previous = undefined; // uma fonte faltando quebra a cadeia: não inventa taxa
@@ -61,8 +71,8 @@ export function buildSalesFunnel(params: {
       title: "Topo — Atração",
       question: "Quantas pessoas a marca alcançou?",
       metrics: [
-        { id: "reach", label: "Alcance no Instagram", hint: "contas únicas que viram a marca", source: "instagram", value: instagram?.reach },
-        { id: "engaged", label: "Engajaram", hint: "curtiram, comentaram, salvaram ou compartilharam", source: "instagram", value: instagram?.accountsEngaged },
+        { id: "reach", label: "Alcance no Instagram", hint: "contas únicas que viram a marca", source: "instagram", value: instagram?.reach, inPath: true },
+        { id: "engaged", label: "Engajaram", hint: "indicador paralelo — curtiram, comentaram, salvaram", source: "instagram", value: instagram?.accountsEngaged, inPath: false },
       ],
     },
     {
@@ -70,10 +80,10 @@ export function buildSalesFunnel(params: {
       title: "Meio — Consideração",
       question: "Quantas se interessaram de verdade?",
       metrics: [
-        { id: "sessions", label: "Visitas à loja", hint: "sessões no site", source: "site", value: ga4?.sessions },
-        { id: "view_item", label: "Viram um produto", hint: "abriram a página de uma peça", source: "site", value: event("view_item") },
-        { id: "add_to_cart", label: "Colocaram no carrinho", hint: "", source: "site", value: event("add_to_cart") },
-        { id: "leads", label: "Leads em conversa", hint: "contatos abertos no CRM (Instagram/WhatsApp)", source: "erp", value: erp.openLeads },
+        { id: "sessions", label: "Visitas à loja", hint: "sessões no site", source: "site", value: ga4?.sessions, inPath: true },
+        { id: "view_item", label: "Viram um produto", hint: "abriram a página de uma peça", source: "site", value: event("view_item"), inPath: true },
+        { id: "add_to_cart", label: "Colocaram no carrinho", hint: "", source: "site", value: event("add_to_cart"), inPath: true },
+        { id: "leads", label: "Leads em conversa", hint: "indicador paralelo — contatos abertos no CRM", source: "erp", value: erp.openLeads, inPath: false },
       ],
     },
     {
@@ -81,9 +91,9 @@ export function buildSalesFunnel(params: {
       title: "Fundo — Conversão",
       question: "Quantas compraram e pagaram?",
       metrics: [
-        { id: "checkout", label: "Iniciaram o checkout", hint: "no site", source: "site", value: event("begin_checkout") },
-        { id: "sales", label: "Vendas", hint: "registradas no ERP, todos os canais", source: "erp", value: erp.salesCount },
-        { id: "paid", label: "Pagas", hint: "já viraram caixa", source: "erp", value: erp.paidCount },
+        { id: "checkout", label: "Iniciaram o checkout", hint: "no site", source: "site", value: event("begin_checkout"), inPath: true },
+        { id: "sales", label: "Vendas", hint: "registradas no ERP, todos os canais", source: "erp", value: erp.salesCount, inPath: true },
+        { id: "paid", label: "Pagas", hint: "já viraram caixa", source: "erp", value: erp.paidCount, inPath: true },
       ],
     },
   ]);

@@ -56,13 +56,18 @@ function StageBand({ stage, loading, actions }: { stage: FunnelStage; loading: b
       <div className="flex flex-wrap items-stretch gap-2">
         {stage.metrics.map((metric, index) => (
           <React.Fragment key={metric.id}>
-            {index > 0 || stage.id !== "topo" ? (
+            {metric.inPath && (index > 0 || stage.id !== "topo") ? (
               <div className="hidden flex-col items-center justify-center px-0.5 text-caption text-muted-foreground sm:flex">
                 <ArrowRight className="size-3.5" />
-                {metric.rateFromPrevious !== undefined ? <span>{formatRate(metric.rateFromPrevious)}</span> : null}
+                {metric.rateFromPrevious !== undefined ? <span className="font-medium text-foreground">{formatRate(metric.rateFromPrevious)}</span> : null}
               </div>
             ) : null}
-            <div className="flex min-w-36 flex-1 flex-col gap-1 rounded-xl bg-card p-3 shadow-subtle">
+            <div
+              className={cn(
+                "flex min-w-36 flex-1 flex-col gap-1 rounded-xl p-3",
+                metric.inPath ? "bg-card shadow-subtle" : "border border-dashed border-border bg-card/60"
+              )}
+            >
               <div className="flex items-center justify-between gap-2">
                 <span className="text-caption text-muted-foreground">{metric.label}</span>
                 <span className="rounded-full bg-paper-mist px-1.5 text-[10px] text-muted-foreground">{SOURCE_LABEL[metric.source]}</span>
@@ -263,7 +268,7 @@ export function MarketingPanel() {
             </React.Fragment>
           ))}
           <p className="mt-1 text-center text-caption text-muted-foreground">
-            As porcentagens mostram quantos passaram da etapa anterior. Cada fonte mede pessoas de um jeito, então leia como tendência, não como conta exata.
+            As porcentagens seguem o caminho até a compra (alcance → loja → produto → carrinho → checkout → venda → paga). Cartões tracejados são indicadores paralelos. Cada fonte mede pessoas de um jeito, então leia como tendência, não como conta exata.
           </p>
         </div>
 

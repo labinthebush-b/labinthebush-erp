@@ -23,12 +23,27 @@ describe("buildSalesFunnel", () => {
     expect(all).toEqual({ reach: 5000, engaged: 80, sessions: 58, view_item: 17, add_to_cart: 4, leads: 5, checkout: 1, sales: 3, paid: 2 });
   });
 
-  it("taxa é relativa à métrica anterior do funil inteiro, atravessando as etapas", () => {
+  it("taxa segue o caminho até a compra: alcance → visitas → produto → carrinho → checkout → vendas → pagas", () => {
+    const rate = (id: string) => buildSalesFunnel({ instagram, ga4, erp }).flatMap((s) => s.metrics).find((m) => m.id === id)?.rateFromPrevious;
+    expect(rate("reach")).toBeUndefined();
+    expect(rate("sessions")).toBeCloseTo(1.16); // 58 / 5000 — do alcance direto para a loja
+    expect(rate("view_item")).toBeCloseTo(29.31, 1); // 17 / 58
+    expect(rate("add_to_cart")).toBeCloseTo(23.53, 1); // 4 / 17
+    expect(rate("checkout")).toBeCloseTo(25); // 1 / 4 — do carrinho para o checkout
+    expect(rate("sales")).toBeCloseTo(300); // 3 / 1 (vendas de todos os canais podem passar do checkout do site)
+    expect(rate("paid")).toBeCloseTo(66.67, 1); // 2 / 3
+  });
+
+  it("engajamento e leads são indicadores paralelos: sem taxa e fora do caminho", () => {
     const metrics = buildSalesFunnel({ instagram, ga4, erp }).flatMap((s) => s.metrics);
-    expect(metrics[0].rateFromPrevious).toBeUndefined();
-    expect(metrics[1].rateFromPrevious).toBeCloseTo(1.6); // 80 / 5000
-    expect(metrics[2].rateFromPrevious).toBeCloseTo(72.5); // 58 / 80 (cruza de topo para meio)
-    expect(metrics.find((m) => m.id === "paid")?.rateFromPrevious).toBeCloseTo(66.67, 1); // 2 / 3
+    for (const id of ["engaged", "leads"]) {
+      const metric = metrics.find((m) => m.id === id)!;
+      expect(metric.inPath).toBe(false);
+      expect(metric.rateFromPrevious).toBeUndefined();
+    }
+    // mesmo com leads = 0 entre o carrinho e o checkout, a taxa do checkout continua vindo do carrinho
+    const noLeads = buildSalesFunnel({ instagram, ga4, erp: { ...erp, openLeads: 0 } }).flatMap((s) => s.metrics);
+    expect(noLeads.find((m) => m.id === "checkout")?.rateFromPrevious).toBeCloseTo(25);
   });
 
   it("fonte fora do ar: métrica sem valor (nunca zero falso) e sem taxa inventada na seguinte", () => {
@@ -38,7 +53,7 @@ describe("buildSalesFunnel", () => {
   });
 
   it("etapa anterior zerada não gera taxa (sem divisão por zero)", () => {
-    const metrics = buildSalesFunnel({ instagram: { ...instagram, accountsEngaged: 0 }, ga4, erp }).flatMap((s) => s.metrics);
+    const metrics = buildSalesFunnel({ instagram: { ...instagram, reach: 0 }, ga4, erp }).flatMap((s) => s.metrics);
     expect(metrics.find((m) => m.id === "sessions")?.rateFromPrevious).toBeUndefined();
   });
 });
