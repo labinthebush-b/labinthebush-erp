@@ -3,6 +3,7 @@
 import * as React from "react";
 import { toast } from "sonner";
 import { useSupabaseUser } from "./use-supabase-user";
+import { useReportDataLoading } from "./data-load-status";
 
 /**
  * Drop-in replacement for the old localStorage-backed `usePersistentReducer`:
@@ -88,5 +89,8 @@ export function useSupabaseReducer<State, Action>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, userId]);
 
-  return [state, dispatch, { loading: userLoading || dataLoading }];
+  const loading = userLoading || dataLoading;
+  useReportDataLoading(loading);
+
+  return [state, dispatch, { loading }];
 }

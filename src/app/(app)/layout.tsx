@@ -1,4 +1,5 @@
 import { UIProvider } from "@/components/providers/ui-provider";
+import { DataLoadStatusProvider } from "@/lib/supabase/data-load-status";
 import { AppShell } from "@/components/layout/app-shell";
 import { FinanceProvider } from "@/lib/finance/finance-provider";
 import { CatalogProvider } from "@/lib/catalog/catalog-provider";
@@ -14,22 +15,24 @@ import { PlanningProvider } from "@/lib/planning/planning-provider";
 // issuing a single query before a session exists.
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SettingsProvider>
-      <FinanceProvider>
-        <PlanningProvider>
-          <CatalogProvider>
-            <ContactsProvider>
-              <SalesProvider>
-                <TasksProvider>
-                  <UIProvider>
-                    <AppShell>{children}</AppShell>
-                  </UIProvider>
-                </TasksProvider>
-              </SalesProvider>
-            </ContactsProvider>
-          </CatalogProvider>
-        </PlanningProvider>
-      </FinanceProvider>
-    </SettingsProvider>
+    <DataLoadStatusProvider>
+      <SettingsProvider>
+        <FinanceProvider>
+          <PlanningProvider>
+            <CatalogProvider>
+              <ContactsProvider>
+                <SalesProvider>
+                  <TasksProvider>
+                    <UIProvider>
+                      <AppShell>{children}</AppShell>
+                    </UIProvider>
+                  </TasksProvider>
+                </SalesProvider>
+              </ContactsProvider>
+            </CatalogProvider>
+          </PlanningProvider>
+        </FinanceProvider>
+      </SettingsProvider>
+    </DataLoadStatusProvider>
   );
 }
