@@ -8,6 +8,7 @@ import { z } from "zod";
 import type { AiRequestContext } from "./context";
 import * as queries from "./tools/queries";
 import { proposeTransaction, confirmTransaction, cancelTransaction } from "./tools/transactions";
+import { cancelProposal, confirmProposal, proposeContact, proposeSale, proposeTask } from "./tools/actions";
 
 const periodShape = {
   start: z.string().optional().describe("Data inicial yyyy-MM-dd (inclusive). Omitir para não filtrar."),
@@ -94,6 +95,157 @@ export function createErpMcpServer(ctx: AiRequestContext): McpServer {
       inputSchema: { status: z.enum(["rascunho", "ativo", "arquivado"]).optional() },
     },
     async (args) => asToolResult(await queries.getProdutos(ctx, args))
+  );
+
+  server.registerTool(
+    "get_estoque",
+    {
+      title: "Consultar estoque",
+      description: "Estoque por produto, tamanho e cor (saldo, situação ok/baixo/esgotado), totais de peças e valor ao custo, e produtos que ainda não têm controle de estoque.",
+      inputSchema: {},
+    },
+    async () => asToolResult(await queries.getEstoque(ctx))
+  );
+
+  server.registerTool(
+    "get_contatos",
+    {
+      title: "Consultar contatos (CRM)",
+      description: "Contatos com estágio no funil do CRM, WhatsApp/Instagram/e-mail, tags e histórico de compras (total, nº de compras, última compra). Use 'busca' para filtrar por nome, telefone, @ ou e-mail.",
+      inputSchema: { busca: z.string().optional() },
+    },
+    async (args) => asToolResult(await queries.getContatos(ctx, args))
+  );
+
+  server.registerTool(
+    "get_campanhas",
+    {
+      title: "Consultar campanhas de marketing",
+      description: "Campanhas registradas: canal, período, situação, custo, UTM e posts do Instagram ligados.",
+      inputSchema: {},
+    },
+    async () => asToolResult(await queries.getCampanhas(ctx))
+  );
+
+  server.registerTool(
+    "get_marketing",
+    {
+      title: "Consultar marketing (site e Instagram)",
+      description: "Números ao vivo do site (Google Analytics: sessões, usuários, funil produto→carrinho→checkout→compra) e do Instagram (alcance, visualizações, engajamento, toques no link da bio) nos últimos 7 ou 30 dias.",
+      inputSchema: { dias: z.union([z.literal(7), z.literal(30)]).optional() },
+    },
+    async (args) => {
+      try {
+        return asToolResult(await queries.getMarketing(ctx, args));
+      } catch (error) {
+        return asErrorResult(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "propose_sale",
+    {
+      title: "Propor o registro de uma venda",
+      description:
+        "Monta uma venda (um ou mais produtos, tamanho/cor quando o produto tem, canal, pagamento pago/pendente, frete) e devolve um preview com total, taxa e aviso de estoque. NÃO grava nada: chame confirm_proposal com o proposalId depois que o usuário confirmar. Ao confirmar, a venda entra no Financeiro e baixa o estoque, igual ao formulário do ERP.",
+      inputSchema: {
+        items: z
+          .array(
+            z.object({
+              productId: z.string().optional(),
+              productName: z.string().optional().describe("Alternativa ao productId; precisa identificar um produto só."),
+              size: z.string().optional(),
+              color: z.string().optional(),
+              quantity: z.number().int().positive(),
+              unitPrice: z.number().positive().optional().describe("Em reais; default = preço do produto."),
+            })
+          )
+          .min(1),
+        channel: z.enum(["nuvemshop", "instagram", "whatsapp", "outro"]),
+        date: z.string().optional().describe("yyyy-MM-dd; default hoje"),
+        contactId: z.string().optional(),
+        payment: z.enum(["pago", "pendente"]).optional().describe("default pago"),
+        shippingCost: z.number().min(0).optional().describe("Custo real do frete em reais"),
+        notes: z.string().optional(),
+      },
+    },
+    async (args) => {
+      try {
+        return asToolResult(await proposeSale(ctx, args));
+      } catch (error) {
+        return asErrorResult(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "propose_task",
+    {
+      title: "Propor uma tarefa",
+      description: "Monta uma tarefa (título, prazo, prioridade). NÃO grava: chame confirm_proposal depois que o usuário confirmar.",
+      inputSchema: {
+        title: z.string().min(1),
+        description: z.string().optional(),
+        dueDate: z.string().optional().describe("yyyy-MM-dd"),
+        priority: z.enum(["baixa", "media", "alta"]).optional(),
+      },
+    },
+    async (args) => {
+      try {
+        return asToolResult(await proposeTask(ctx, args));
+      } catch (error) {
+        return asErrorResult(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "propose_contact",
+    {
+      title: "Propor um contato novo",
+      description: "Monta um contato (nome, WhatsApp, Instagram, e-mail) e avisa se já existe um parecido. NÃO grava: chame confirm_proposal depois que o usuário confirmar.",
+      inputSchema: { name: z.string().min(1), whatsapp: z.string().optional(), instagram: z.string().optional(), email: z.string().optional() },
+    },
+    async (args) => {
+      try {
+        return asToolResult(await proposeContact(ctx, args));
+      } catch (error) {
+        return asErrorResult(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "confirm_proposal",
+    {
+      title: "Confirmar qualquer proposta",
+      description: "Efetiva uma proposta (lançamento, venda, tarefa ou contato). Só chame depois que o usuário confirmar explicitamente o preview.",
+      inputSchema: { proposalId: z.string() },
+    },
+    async (args) => {
+      try {
+        return asToolResult(await confirmProposal(ctx, args));
+      } catch (error) {
+        return asErrorResult(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "cancel_proposal",
+    {
+      title: "Cancelar qualquer proposta",
+      description: "Descarta uma proposta sem gravar nada.",
+      inputSchema: { proposalId: z.string() },
+    },
+    async (args) => {
+      try {
+        return asToolResult(await cancelProposal(ctx, args));
+      } catch (error) {
+        return asErrorResult(error);
+      }
+    }
   );
 
   server.registerTool(

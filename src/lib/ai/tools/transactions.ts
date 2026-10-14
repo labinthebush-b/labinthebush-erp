@@ -106,7 +106,7 @@ export async function confirmTransaction(ctx: AiRequestContext, args: { proposal
     throw new Error("Esta proposta expirou. Peça para a IA gerar o lançamento novamente.");
   }
 
-  const transaction = buildTransaction(proposal.payload);
+  const transaction = buildTransaction(proposal.payload as NewTransactionInput);
   await upsertTransactions(ctx.userId, [transaction], ctx.client);
   await markProposalConfirmed(proposal.id, ctx.client);
 

@@ -14,6 +14,18 @@ import { calculateCaixa, calculateResultado, isPending, type Period } from "@/li
 import { formatCurrencyCents } from "@/lib/currency";
 import type { Task } from "@/lib/tasks/types";
 import type { Product } from "@/lib/catalog/types";
+import { fetchContacts } from "@/lib/contacts/repository";
+import { fetchStockMovements } from "@/lib/stock/repository";
+import { fetchCampaigns, fetchPostLinks } from "@/lib/campaigns/repository";
+import { listVariantStocks, summarizeStock, variantLabel } from "@/lib/stock/calculations";
+import { calculateProductCost } from "@/lib/catalog/calculations";
+import { aggregateContactHistory, calculateSaleProfit } from "@/lib/sales/calculations";
+import { PAYMENT_LABELS, getSalePaymentStatus, indexTransactionsById } from "@/lib/sales/payment";
+import { resolveStageId, type PipelineStage } from "@/lib/contacts/pipeline";
+import { campaignStatus } from "@/lib/campaigns/calculations";
+import { DEFAULT_SETTINGS } from "@/lib/settings/types";
+import { fetchGa4Summary } from "@/lib/marketing/ga4";
+import { fetchInstagramSummary } from "@/lib/marketing/instagram";
 
 export type QueryPeriodArgs = { start?: string; end?: string };
 
@@ -85,8 +97,31 @@ export async function getContasAPagarReceber(ctx: AiRequestContext) {
   };
 }
 
+/** Configurações usadas pelas ferramentas (lidas direto da linha, com o cliente da requisição). */
+export async function loadAiSettings(ctx: AiRequestContext) {
+  const { data, error } = await ctx.client
+    .from("settings")
+    .select("nuvemshop_fee_bps, low_stock_threshold, pipeline_stages")
+    .eq("user_id", ctx.userId)
+    .maybeSingle();
+  if (error) throw error;
+  const row = (data ?? {}) as { nuvemshop_fee_bps?: number; low_stock_threshold?: number; pipeline_stages?: PipelineStage[] };
+  return {
+    nuvemshopFeePercent: (row.nuvemshop_fee_bps ?? 0) / 100,
+    lowStockThreshold: row.low_stock_threshold ?? DEFAULT_SETTINGS.lowStockThreshold,
+    pipelineStages: row.pipeline_stages?.length ? row.pipeline_stages : DEFAULT_SETTINGS.pipelineStages,
+  };
+}
+
 export async function getVendas(ctx: AiRequestContext, period: Period = {}) {
-  const sales = await fetchSales(ctx.userId, ctx.client);
+  const [sales, transactions, products, contacts] = await Promise.all([
+    fetchSales(ctx.userId, ctx.client),
+    fetchTransactions(ctx.userId, ctx.client),
+    fetchProducts(ctx.userId, ctx.client),
+    fetchContacts(ctx.userId, ctx.client),
+  ]);
+  const byTx = indexTransactionsById(transactions);
+  const productName = (id: string) => products.find((p) => p.id === id)?.name ?? "Produto removido";
   const inScope = sales.filter((s) => (!period.start || s.date >= period.start) && (!period.end || s.date <= period.end));
   return {
     periodo: period,
@@ -95,11 +130,109 @@ export async function getVendas(ctx: AiRequestContext, period: Period = {}) {
     vendas: inScope.map((s) => ({
       id: s.id,
       data: s.date,
-      itens: s.items.map((item) => ({ produtoId: item.productId, quantidade: item.quantity })),
+      cliente: s.contactId ? contacts.find((c) => c.id === s.contactId)?.name ?? null : null,
+      itens: s.items.map((item) => ({
+        produtoId: item.productId,
+        produto: productName(item.productId),
+        tamanho: item.size ?? null,
+        cor: item.color ?? null,
+        quantidade: item.quantity,
+        precoUnitarioCentavos: item.unitPrice,
+      })),
       valorTotalCentavos: s.totalAmount,
       valorTotalFormatado: formatCurrencyCents(s.totalAmount),
+      lucroEstimadoCentavos: calculateSaleProfit(s, (id) => products.find((p) => p.id === id)),
       canal: s.channel,
+      pagamento: PAYMENT_LABELS[getSalePaymentStatus(s, byTx)],
     })),
+  };
+}
+
+export async function getEstoque(ctx: AiRequestContext) {
+  const [products, movements, settings] = await Promise.all([
+    fetchProducts(ctx.userId, ctx.client),
+    fetchStockMovements(ctx.userId, ctx.client),
+    loadAiSettings(ctx),
+  ]);
+  const active = products.filter((p) => p.status !== "arquivado");
+  const stocks = listVariantStocks(active, movements, settings.lowStockThreshold);
+  const totals = summarizeStock(stocks, (id) => calculateProductCost(products.find((p) => p.id === id)?.costComponents ?? []));
+  const tracked = new Set(stocks.map((s) => s.variant.productId));
+  return {
+    limiteEstoqueBaixo: settings.lowStockThreshold,
+    pecasEmEstoque: totals.units,
+    valorEmEstoqueCentavos: totals.value,
+    variacoesComEstoqueBaixo: totals.lowCount,
+    variacoesEsgotadas: totals.outCount,
+    variacoes: stocks.map((s) => ({
+      produtoId: s.variant.productId,
+      produto: products.find((p) => p.id === s.variant.productId)?.name,
+      tamanho: s.variant.size ?? null,
+      cor: s.variant.color ?? null,
+      variacao: variantLabel(s.variant),
+      estoque: s.level,
+      situacao: s.status,
+    })),
+    produtosSemControleDeEstoque: active.filter((p) => !tracked.has(p.id)).map((p) => p.name),
+  };
+}
+
+export async function getContatos(ctx: AiRequestContext, args: { busca?: string } = {}) {
+  const [contacts, sales, settings] = await Promise.all([fetchContacts(ctx.userId, ctx.client), fetchSales(ctx.userId, ctx.client), loadAiSettings(ctx)]);
+  const term = args.busca?.trim().toLowerCase();
+  const inScope = term
+    ? contacts.filter((c) => [c.name, c.whatsapp, c.instagram, c.email].some((v) => v?.toLowerCase().includes(term)))
+    : contacts;
+  return {
+    total: inScope.length,
+    contatos: inScope.map((c) => {
+      const stageId = resolveStageId(c, settings.pipelineStages);
+      const history = aggregateContactHistory(sales, c.id);
+      return {
+        id: c.id,
+        nome: c.name,
+        estagio: settings.pipelineStages.find((s) => s.id === stageId)?.label ?? stageId,
+        whatsapp: c.whatsapp ?? null,
+        instagram: c.instagram ?? null,
+        email: c.email ?? null,
+        tags: (c.tags ?? []).map((t) => t.label),
+        totalCompradoCentavos: history.totalPurchased,
+        numeroDeCompras: history.purchaseCount,
+        ultimaCompra: history.lastPurchaseDate ?? null,
+      };
+    }),
+  };
+}
+
+export async function getCampanhas(ctx: AiRequestContext) {
+  const [campaigns, posts] = await Promise.all([fetchCampaigns(ctx.userId, ctx.client), fetchPostLinks(ctx.userId, ctx.client)]);
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    total: campaigns.length,
+    campanhas: campaigns.map((c) => ({
+      id: c.id,
+      nome: c.name,
+      canal: c.channel,
+      situacao: campaignStatus(c, today),
+      inicio: c.startDate,
+      fim: c.endDate ?? null,
+      custoCentavos: c.cost ?? null,
+      utm: { source: c.utmSource, medium: c.utmMedium, campaign: c.utmCampaign },
+      postsLigados: posts.filter((p) => p.campaignId === c.id).map((p) => p.id),
+      observacao: c.notes ?? null,
+    })),
+  };
+}
+
+/** Site (GA4) e Instagram ao vivo — cada fonte responde ou falha sozinha. */
+export async function getMarketing(_ctx: AiRequestContext, args: { dias?: number } = {}) {
+  const days = args.dias === 7 ? 7 : 30;
+  const [site, instagram] = await Promise.allSettled([fetchGa4Summary(days), fetchInstagramSummary(days)]);
+  return {
+    periodoDias: days,
+    site: site.status === "fulfilled" ? site.value : { erro: (site.reason as Error).message },
+    instagram: instagram.status === "fulfilled" ? instagram.value : { erro: (instagram.reason as Error).message },
+    observacao: "O GA4 só registra compras se o evento 'purchase' estiver ativo na loja; vendas por Instagram/WhatsApp aparecem só no ERP.",
   };
 }
 
@@ -129,6 +262,9 @@ export async function getProdutos(ctx: AiRequestContext, args: { status?: Produc
       status: p.status,
       precoCentavos: p.price,
       precoFormatado: p.price != null ? formatCurrencyCents(p.price) : null,
+      custoUnitarioCentavos: calculateProductCost(p.costComponents),
+      tamanhos: p.sizes ?? [],
+      cores: p.colors ?? [],
       sku: p.sku,
     })),
   };

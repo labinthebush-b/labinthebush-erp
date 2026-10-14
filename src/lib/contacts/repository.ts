@@ -50,8 +50,8 @@ function contactToRow(userId: string, contact: Contact): ContactRow {
   };
 }
 
-export async function fetchContacts(userId: string): Promise<Contact[]> {
-  const { data, error } = await createClient().from("contacts").select("*").eq("user_id", userId);
+export async function fetchContacts(userId: string, client: AnySupabaseClient = createClient()): Promise<Contact[]> {
+  const { data, error } = await client.from("contacts").select("*").eq("user_id", userId);
   if (error) throw error;
   return (data as ContactRow[]).map(rowToContact);
 }

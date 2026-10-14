@@ -4,15 +4,16 @@
 // shows the user the preview text, and only src/lib/ai/tools/transactions.ts's
 // confirm step calls the real finance repository.
 import type { AnySupabaseClient } from "@/lib/supabase/types";
-import type { NewTransactionInput } from "@/lib/finance/actions";
 
-export type ProposalKind = "transaction";
+/** O que a IA pode propor. Cada tipo tem o seu payload, validado no passo de confirmação (ver src/lib/ai/tools/*). */
+export type ProposalKind = "transaction" | "sale" | "task" | "contact";
 
 export type Proposal = {
   id: string;
   userId: string;
   kind: ProposalKind;
-  payload: NewTransactionInput;
+  /** jsonb livre — quem confirma sabe o formato pelo `kind`. */
+  payload: unknown;
   previewText: string;
   status: "pending" | "confirmed" | "cancelled" | "expired";
   createdAt: string;
@@ -23,7 +24,7 @@ type ProposalRow = {
   id: string;
   user_id: string;
   kind: string;
-  payload: NewTransactionInput;
+  payload: unknown;
   preview_text: string;
   status: Proposal["status"];
   created_at: string;
@@ -46,7 +47,7 @@ function rowToProposal(row: ProposalRow): Proposal {
 export async function createProposal(
   userId: string,
   kind: ProposalKind,
-  payload: NewTransactionInput,
+  payload: unknown,
   previewText: string,
   client: AnySupabaseClient
 ): Promise<Proposal> {
