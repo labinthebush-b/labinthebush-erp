@@ -10,6 +10,7 @@ import type { Product } from "@/lib/catalog/types";
 import { productsBelowMargin } from "@/lib/reports/products-report";
 import type { Sale } from "@/lib/sales/types";
 import type { TaskNotification } from "@/lib/tasks/notifications";
+import { variantLabel, type VariantStock } from "@/lib/stock/calculations";
 
 function addDaysISO(isoDate: string, days: number): string {
   const [year, month, day] = isoDate.split("-").map(Number);
@@ -92,6 +93,46 @@ export function deriveMarginNotifications(products: Product[], thresholdPercent:
     read: false,
     href: "/produtos",
   }));
+}
+
+const MAX_VARIANTS_IN_NOTIFICATION = 3;
+
+/**
+ * Um aviso por produto (não por tamanho/cor, para não inundar a central):
+ * lista as variações esgotadas ou com estoque baixo. Só produtos com estoque
+ * controlado aparecem — quem nunca recebeu uma entrada nunca gera alerta.
+ */
+export function deriveLowStockNotifications(
+  stocks: VariantStock[],
+  getProductName: (productId: string) => string | undefined,
+  todayISO: string
+): TaskNotification[] {
+  const byProduct = new Map<string, VariantStock[]>();
+  for (const stock of stocks) {
+    if (stock.status === "ok") continue;
+    const list = byProduct.get(stock.variant.productId) ?? [];
+    list.push(stock);
+    byProduct.set(stock.variant.productId, list);
+  }
+
+  const notifications: TaskNotification[] = [];
+  for (const [productId, list] of byProduct) {
+    const name = getProductName(productId);
+    if (!name) continue;
+    const shown = list.slice(0, MAX_VARIANTS_IN_NOTIFICATION).map((s) =>
+      s.status === "esgotado" ? `${variantLabel(s.variant)} esgotado` : `${variantLabel(s.variant)} (${s.level} un.)`
+    );
+    const extra = list.length - shown.length;
+    notifications.push({
+      id: `low-stock-${productId}`,
+      title: list.some((s) => s.status === "esgotado") ? "Estoque esgotado" : "Estoque baixo",
+      description: `${name}: ${shown.join(", ")}${extra > 0 ? ` e mais ${extra}` : ""}.`,
+      createdAt: todayISO,
+      read: false,
+      href: "/estoque",
+    });
+  }
+  return notifications;
 }
 
 export function deriveSalesTodayNotification(sales: Sale[], todayISO: string): TaskNotification[] {

@@ -15,6 +15,8 @@ export type Settings = {
   planningTrackedCategoryIds: string[];
   /** Taxa cobrada pela Nuvemshop sobre o valor da venda, em % (ex.: 4.99). 0 = não configurada — nenhuma taxa é aplicada até o usuário preencher aqui (ver lib/sales/calculations.ts:calculateNuvemshopFee). */
   nuvemshopFeePercent: number;
+  /** Uma variante (tamanho/cor) com este número de peças ou menos aparece como "estoque baixo" (ver lib/stock). */
+  lowStockThreshold: number;
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -24,6 +26,7 @@ export const DEFAULT_SETTINGS: Settings = {
   pipelineStages: DEFAULT_PIPELINE_STAGES,
   planningTrackedCategoryIds: [],
   nuvemshopFeePercent: 0,
+  lowStockThreshold: 3,
 };
 
 export const DASHBOARD_WIDGETS = [

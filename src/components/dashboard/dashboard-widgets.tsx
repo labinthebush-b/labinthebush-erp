@@ -14,8 +14,11 @@ import { useSettings } from "@/lib/settings/settings-provider";
 import { buildWeeklyCashFlowSeries, buildSalesTrendSeries } from "@/lib/dashboard/calculations";
 import {
   deriveFinanceNotifications,
+  deriveLowStockNotifications,
   deriveMarginNotifications,
 } from "@/lib/notifications/business";
+import { useStock } from "@/lib/stock/stock-provider";
+import { listVariantStocks } from "@/lib/stock/calculations";
 import { formatCurrencyCents } from "@/lib/currency";
 import { describeSaleItems } from "@/lib/sales/calculations";
 import type { Sale, SalesChannel } from "@/lib/sales/types";
@@ -149,12 +152,22 @@ export function AlertsCard({ todayISO }: { todayISO: string }) {
   const { transactions } = useFinance();
   const { products } = useCatalog();
   const { settings } = useSettings();
+  const { movements } = useStock();
 
   // Reuses the exact same derivations shown in the notifications inbox —
   // no separate "alerts" data source.
   const overdueFinance = deriveFinanceNotifications(transactions, todayISO).filter((n) => n.title.includes("atrasada"));
   const lowMargin = deriveMarginNotifications(products, settings.marginThresholdPercent, todayISO);
-  const alerts = [...overdueFinance, ...lowMargin].slice(0, 4);
+  const lowStock = deriveLowStockNotifications(
+    listVariantStocks(
+      products.filter((p) => p.status !== "arquivado"),
+      movements,
+      settings.lowStockThreshold
+    ),
+    (id) => products.find((p) => p.id === id)?.name,
+    todayISO
+  );
+  const alerts = [...overdueFinance, ...lowStock, ...lowMargin].slice(0, 4);
 
   return (
     <Card>

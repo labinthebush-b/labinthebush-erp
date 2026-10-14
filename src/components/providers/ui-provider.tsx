@@ -65,30 +65,6 @@ type UIContextValue = {
 
 const UIContext = React.createContext<UIContextValue | null>(null);
 
-const MOCK_NOTIFICATIONS: Notification[] = [
-  {
-    id: "1",
-    title: "Pagamento recebido",
-    description: "Pedido #1042 foi pago via Pix.",
-    createdAt: "há 12 min",
-    read: false,
-  },
-  {
-    id: "2",
-    title: "Estoque baixo",
-    description: "\"Camiseta Oversized Preta\" com apenas 3 unidades.",
-    createdAt: "há 2 h",
-    read: false,
-  },
-  {
-    id: "3",
-    title: "Tarefa vencida",
-    description: "\"Fechar fornecedor de tecido\" venceu ontem.",
-    createdAt: "há 1 dia",
-    read: true,
-  },
-];
-
 export function UIProvider({ children }: { children: React.ReactNode }) {
   const [drawer, setDrawer] = React.useState<DrawerConfig | null>(null);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
@@ -97,7 +73,11 @@ export function UIProvider({ children }: { children: React.ReactNode }) {
   const [confirmConfig, setConfirmConfig] = React.useState<ConfirmConfig | null>(null);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [commandPaletteOpen, setCommandPaletteOpen] = React.useState(false);
-  const [notifications, setNotifications] = React.useState<Notification[]>(MOCK_NOTIFICATIONS);
+  // Só avisos pontuais emitidos pela própria interface entram aqui. Os avisos de
+  // negócio (contas, estoque, margem, tarefas) são derivados ao vivo dos dados
+  // — ver NotificationsMenu. Nunca semear com exemplos: já apareceram
+  // "Pedido #1042 pago" e "Estoque baixo" inventados para o usuário real.
+  const [notifications, setNotifications] = React.useState<Notification[]>([]);
 
   const openDrawer = React.useCallback((config: DrawerConfig) => {
     setDrawer(config);

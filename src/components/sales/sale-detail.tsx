@@ -15,6 +15,7 @@ import {
   calculateSaleContribution,
   calculateSaleProfit,
 } from "@/lib/sales/calculations";
+import { variantLabel } from "@/lib/stock/calculations";
 import { formatCurrencyCents, formatSignedCurrencyCents } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import { CHANNEL_LABELS, CHANNEL_TAG_COLOR, PAYMENT_TAG_COLOR } from "@/components/sales/sale-labels";
@@ -100,6 +101,7 @@ export function SaleDetail({ saleId, onEdit }: { saleId: string; onEdit: (sale: 
               <div className="flex min-w-0 flex-col">
                 <span className="truncate text-foreground">{getProduct(item.productId)?.name ?? "Produto removido"}</span>
                 <span className="text-caption text-muted-foreground">
+                  {item.size || item.color ? `${variantLabel(item)} · ` : ""}
                   {item.quantity} × {formatCurrencyCents(item.unitPrice)}
                 </span>
               </div>

@@ -67,9 +67,9 @@ export default function ConfiguracoesPage() {
       <Card>
         <CardHeader>
           <CardTitle>Alertas de negócio</CardTitle>
-          <CardDescription>Controla quando um produto é sinalizado com margem baixa.</CardDescription>
+          <CardDescription>Controla quando um produto é sinalizado com margem baixa ou estoque baixo.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-4">
           <Field label="Margem mínima aceitável" hint="Produtos com margem igual ou abaixo deste percentual aparecem na central de notificações.">
             <div className="flex max-w-40 items-center gap-2">
               <Input
@@ -84,6 +84,22 @@ export default function ConfiguracoesPage() {
                 }}
               />
               <span className="text-body text-muted-foreground">%</span>
+            </div>
+          </Field>
+          <Field label="Estoque baixo a partir de" hint="Tamanho/cor com este número de peças ou menos aparece como “estoque baixo” no Estoque e nas notificações.">
+            <div className="flex max-w-40 items-center gap-2">
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                value={settings.lowStockThreshold}
+                onChange={(e) => {
+                  const value = Math.max(0, Math.round(Number(e.target.value) || 0));
+                  updateSettings({ lowStockThreshold: value });
+                  toast.success("Preferência salva.");
+                }}
+              />
+              <span className="text-body text-muted-foreground">peças</span>
             </div>
           </Field>
         </CardContent>

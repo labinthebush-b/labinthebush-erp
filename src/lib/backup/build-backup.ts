@@ -6,6 +6,7 @@
 import type { Category, InstallmentGroup, MonthClosing, RecurringRule, Transaction } from "@/lib/finance/types";
 import type { Sale } from "@/lib/sales/types";
 import type { Product } from "@/lib/catalog/types";
+import type { StockMovement } from "@/lib/stock/types";
 import type { Contact } from "@/lib/contacts/types";
 import type { Task } from "@/lib/tasks/types";
 import type { CanvasElement } from "@/lib/canvas/types";
@@ -26,6 +27,8 @@ export type BackupPayload = {
   };
   sales: Sale[];
   products: Product[];
+  /** Histórico de estoque (entradas, saídas, ajustes) — o saldo de cada variação é a soma dele. */
+  stockMovements: StockMovement[];
   contacts: Contact[];
   tasks: Task[];
   canvas: CanvasElement[];
@@ -41,6 +44,7 @@ export function buildBackupPayload(input: {
   finance: BackupPayload["finance"];
   sales: Sale[];
   products: Product[];
+  stockMovements: StockMovement[];
   contacts: Contact[];
   tasks: Task[];
   canvas: CanvasElement[];
@@ -53,6 +57,7 @@ export function buildBackupPayload(input: {
     finance: input.finance,
     sales: input.sales,
     products: input.products,
+    stockMovements: input.stockMovements,
     contacts: input.contacts,
     tasks: input.tasks,
     canvas: input.canvas,

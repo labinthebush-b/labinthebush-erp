@@ -19,6 +19,9 @@ import { DrawerForm, DrawerFormActions } from "@/components/common/drawer-form";
 import { useContacts } from "@/lib/contacts/contacts-provider";
 import { useSales } from "@/lib/sales/sales-provider";
 import { useFinance } from "@/lib/finance/finance-provider";
+import { useCatalog } from "@/lib/catalog/catalog-provider";
+import { useStock } from "@/lib/stock/stock-provider";
+import { findStockShortages, missingVariantChoice, variantLabel } from "@/lib/stock/calculations";
 import { PAYMENT_LABELS, getSalePaymentStatus, indexTransactionsById, type SalePaymentInput } from "@/lib/sales/payment";
 import { useSettings } from "@/lib/settings/settings-provider";
 import { useUI } from "@/components/providers/ui-provider";
@@ -56,8 +59,12 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
   const { addSale, updateSale } = useSales();
   const { settings } = useSettings();
   const { transactions } = useFinance();
+  const { products } = useCatalog();
+  const { movements } = useStock();
   const { openModal, closeModal } = useUI();
   const isEditing = Boolean(sale);
+  // Itens que a venda já tinha antes desta edição — ver planSaleMovements.
+  const previousItemIds = React.useMemo(() => new Set(sale?.items.map((item) => item.id) ?? []), [sale]);
 
   // "Pago"/"pendente" vem da transação de receita da venda (ver lib/sales/payment.ts).
   // Uma venda cancelada (ou sem lançamento) não é editável por aqui: o campo
@@ -91,11 +98,26 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
   }
 
   const breakdown = calculateSaleBreakdown({ items, discounts, shippingCost, channel, nuvemshopFeePercent: settings.nuvemshopFeePercent });
+  const shortages = React.useMemo(
+    () => findStockShortages({ items, movements, editingSaleId: sale?.id, previousItemIds }),
+    [items, movements, sale?.id, previousItemIds]
+  );
 
   function handleSubmit() {
     if (items.length === 0 || items.some((item) => !item.productId)) {
       toast.error("Selecione o produto de cada item da venda.");
       return;
+    }
+    // Itens novos precisam dizer qual tamanho/cor saiu — é daí que o estoque baixa.
+    // Itens que a venda já tinha (registrados antes do estoque) não são forçados.
+    for (const item of items) {
+      if (previousItemIds.has(item.id)) continue;
+      const product = products.find((p) => p.id === item.productId);
+      const missing = missingVariantChoice(product, item);
+      if (product && missing) {
+        toast.error(missing === "cor" ? `Escolha a cor de “${product.name}”.` : `Escolha o tamanho de “${product.name}”.`);
+        return;
+      }
     }
     if (!date) {
       toast.error("Selecione a data da venda.");
@@ -157,6 +179,19 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
         <Field label="Produtos" hint="Adicione um ou mais produtos — o subtotal de cada um é sempre quantidade × preço unitário.">
           <SaleItemsEditor items={items} onChange={setItems} />
         </Field>
+
+        {shortages.length > 0 ? (
+          <div role="alert" className="flex flex-col gap-1 rounded-lg border border-[#fcd34d] bg-[#fef3c7] p-3 text-caption text-[#92400e]">
+            <span className="font-medium">Estoque insuficiente</span>
+            {shortages.map((shortage) => (
+              <span key={`${shortage.productId}-${shortage.size ?? ""}-${shortage.color ?? ""}`}>
+                {products.find((p) => p.id === shortage.productId)?.name ?? "Produto"} ({variantLabel(shortage)}): pedido {shortage.requested},{" "}
+                em estoque {Math.max(shortage.available, 0)}.
+              </span>
+            ))}
+            <span>Você pode registrar a venda mesmo assim — o estoque fica negativo até a próxima entrada.</span>
+          </div>
+        ) : null}
 
         <Field label="Frete" optional hint="Custo real de frete para a marca. Cobrado do cliente, a menos que haja um desconto de frete grátis.">
           <CurrencyInput value={shippingCost} onValueChange={setShippingCost} />

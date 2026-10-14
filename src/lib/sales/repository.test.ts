@@ -316,3 +316,36 @@ describe("upsertSales — vendas novas nunca escrevem nas colunas legadas", () =
     expect(db.tables.sales).toHaveLength(0);
   });
 });
+
+describe("tamanho e cor do item (migration 0004)", () => {
+  it("grava o tamanho e a cor vendidos em sale_items e os devolve na leitura", async () => {
+    const db = createFakeDb();
+    const sale = makeSale({ id: "sale-1", items: [makeSaleItem({ productId: "prod-1", size: "M", color: "Preto" })] });
+
+    await upsertSales(USER, [sale], db.client);
+
+    expect(db.tables.sale_items[0]).toMatchObject({ size: "M", color: "Preto" });
+    const [reloaded] = await fetchSales(USER, db.client);
+    expect(reloaded.items[0]).toMatchObject({ size: "M", color: "Preto" });
+  });
+
+  it("produto sem variação grava null e relê como undefined (nunca a string 'null')", async () => {
+    const db = createFakeDb();
+    await upsertSales(USER, [makeSale({ id: "sale-1", items: [makeSaleItem({ productId: "prod-1" })] })], db.client);
+
+    expect(db.tables.sale_items[0]).toMatchObject({ size: null, color: null });
+    const [reloaded] = await fetchSales(USER, db.client);
+    expect(reloaded.items[0].size).toBeUndefined();
+    expect(reloaded.items[0].color).toBeUndefined();
+  });
+
+  it("vendas antigas (linhas sem as colunas novas) continuam legíveis", async () => {
+    const db = createFakeDb({
+      sales: [baseSaleRow()],
+      sale_items: [{ id: "i1", sale_id: "sale-1", user_id: USER, product_id: "prod-1", quantity: 1, unit_price: 10000, subtotal: 10000 }],
+    });
+    const [sale] = await fetchSales(USER, db.client);
+    expect(sale.items[0]).toMatchObject({ productId: "prod-1", quantity: 1 });
+    expect(sale.items[0].size).toBeUndefined();
+  });
+});

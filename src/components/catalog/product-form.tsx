@@ -62,8 +62,7 @@ export function ProductForm({ product, onDone }: { product?: Product; onDone: ()
 
   const hasExtraFields = Boolean(
     product?.category || product?.collection || product?.sku || product?.supplier ||
-    product?.sizes?.length || product?.colors?.length || product?.image ||
-    product?.description || product?.notes
+    product?.image || product?.description || product?.notes
   );
 
   function handleSubmit() {
@@ -121,6 +120,18 @@ export function ProductForm({ product, onDone }: { product?: Product; onDone: ()
           </Select>
         </Field>
 
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Tamanhos" optional>
+            <Input value={sizes} onChange={(e) => setSizes(e.target.value)} placeholder="P, M, G, GG" />
+          </Field>
+          <Field label="Cores" optional>
+            <Input value={colors} onChange={(e) => setColors(e.target.value)} placeholder="Preto, Branco" />
+          </Field>
+          <p className="col-span-2 -mt-1 text-caption text-muted-foreground">
+            Separe por vírgula. É por tamanho e cor que o estoque é controlado e que a venda pergunta qual peça saiu.
+          </p>
+        </div>
+
         <div className="flex flex-col gap-2">
           <span className="text-body font-medium text-foreground">Custos</span>
           <CostComponentsEditor components={costComponents} onChange={setCostComponents} />
@@ -171,12 +182,6 @@ export function ProductForm({ product, onDone }: { product?: Product; onDone: ()
           </Field>
           <Field label="Fornecedor" optional>
             <Input value={supplier} onChange={(e) => setSupplier(e.target.value)} />
-          </Field>
-          <Field label="Tamanhos" optional hint="Separados por vírgula">
-            <Input value={sizes} onChange={(e) => setSizes(e.target.value)} placeholder="P, M, G, GG" />
-          </Field>
-          <Field label="Cores" optional hint="Separadas por vírgula">
-            <Input value={colors} onChange={(e) => setColors(e.target.value)} placeholder="Preto, Branco" />
           </Field>
           <Field label="Imagem" optional hint="URL da imagem">
             <div className="flex items-start gap-3">

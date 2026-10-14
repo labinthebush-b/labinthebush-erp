@@ -21,10 +21,19 @@ function makeItemId(): string {
  * valores inconsistentes entre quantidade, preço e subtotal" é garantido: a
  * inconsistência simplesmente não é representável.
  */
-export function buildSaleItem(input: { id?: string; productId: string; quantity: number; unitPrice: number }): SaleItem {
+export function buildSaleItem(input: {
+  id?: string;
+  productId: string;
+  size?: string;
+  color?: string;
+  quantity: number;
+  unitPrice: number;
+}): SaleItem {
   return {
     id: input.id ?? makeItemId(),
     productId: input.productId,
+    size: input.size,
+    color: input.color,
     quantity: input.quantity,
     unitPrice: input.unitPrice,
     subtotal: input.quantity * input.unitPrice,

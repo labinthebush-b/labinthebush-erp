@@ -35,17 +35,38 @@ type SaleItemRow = {
   sale_id: string;
   user_id: string;
   product_id: string;
+  // Migration 0004 — nulos para produtos sem variação e para vendas anteriores a ela.
+  size: string | null;
+  color: string | null;
   quantity: number;
   unit_price: number;
   subtotal: number;
 };
 
 function rowToSaleItem(row: SaleItemRow): SaleItem {
-  return { id: row.id, productId: row.product_id, quantity: row.quantity, unitPrice: row.unit_price, subtotal: row.subtotal };
+  return {
+    id: row.id,
+    productId: row.product_id,
+    size: row.size ?? undefined,
+    color: row.color ?? undefined,
+    quantity: row.quantity,
+    unitPrice: row.unit_price,
+    subtotal: row.subtotal,
+  };
 }
 
 function saleItemToRow(userId: string, saleId: string, item: SaleItem): SaleItemRow {
-  return { id: item.id, sale_id: saleId, user_id: userId, product_id: item.productId, quantity: item.quantity, unit_price: item.unitPrice, subtotal: item.subtotal };
+  return {
+    id: item.id,
+    sale_id: saleId,
+    user_id: userId,
+    product_id: item.productId,
+    size: item.size ?? null,
+    color: item.color ?? null,
+    quantity: item.quantity,
+    unit_price: item.unitPrice,
+    subtotal: item.subtotal,
+  };
 }
 
 /**

@@ -3,6 +3,7 @@ import { DataLoadStatusProvider } from "@/lib/supabase/data-load-status";
 import { AppShell } from "@/components/layout/app-shell";
 import { FinanceProvider } from "@/lib/finance/finance-provider";
 import { CatalogProvider } from "@/lib/catalog/catalog-provider";
+import { StockProvider } from "@/lib/stock/stock-provider";
 import { ContactsProvider } from "@/lib/contacts/contacts-provider";
 import { SalesProvider } from "@/lib/sales/sales-provider";
 import { TasksProvider } from "@/lib/tasks/tasks-provider";
@@ -20,15 +21,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <FinanceProvider>
           <PlanningProvider>
             <CatalogProvider>
-              <ContactsProvider>
-                <SalesProvider>
-                  <TasksProvider>
-                    <UIProvider>
-                      <AppShell>{children}</AppShell>
-                    </UIProvider>
-                  </TasksProvider>
-                </SalesProvider>
-              </ContactsProvider>
+              <StockProvider>
+                <ContactsProvider>
+                  <SalesProvider>
+                    <TasksProvider>
+                      <UIProvider>
+                        <AppShell>{children}</AppShell>
+                      </UIProvider>
+                    </TasksProvider>
+                  </SalesProvider>
+                </ContactsProvider>
+              </StockProvider>
             </CatalogProvider>
           </PlanningProvider>
         </FinanceProvider>

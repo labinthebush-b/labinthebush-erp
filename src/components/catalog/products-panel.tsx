@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { toast } from "sonner";
-import { MoreHorizontal, Plus, FlaskConical, Search } from "lucide-react";
+import { MoreHorizontal, Plus, FlaskConical, Search, Boxes } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -15,6 +15,10 @@ import {
 import { DataTable, type DataTableColumn } from "@/components/common/data-table";
 import { StatusBadge, type Status } from "@/components/common/status-badge";
 import { useCatalog } from "@/lib/catalog/catalog-provider";
+import { useStock } from "@/lib/stock/stock-provider";
+import { useSettings } from "@/lib/settings/settings-provider";
+import { listVariantStocks, summarizeProductStock } from "@/lib/stock/calculations";
+import { StockMovementForm } from "@/components/stock/stock-movement-form";
 import { useUI } from "@/components/providers/ui-provider";
 import { ProductForm } from "@/components/catalog/product-form";
 import { ProductSimulator } from "@/components/catalog/product-simulator";
@@ -31,7 +35,14 @@ const STATUS_MAP: Record<ProductStatus, Status> = {
 export function ProductsPanel() {
   const { products, deleteProduct } = useCatalog();
   const { openDrawer, closeDrawer, confirm } = useUI();
+  const { movements } = useStock();
+  const { settings } = useSettings();
   const [search, setSearch] = React.useState("");
+
+  const stocks = React.useMemo(
+    () => listVariantStocks(products, movements, settings.lowStockThreshold),
+    [products, movements, settings.lowStockThreshold]
+  );
 
   const filtered = products.filter((p) =>
     search.trim() ? p.name.toLowerCase().includes(search.trim().toLowerCase()) : true
@@ -58,6 +69,14 @@ export function ProductsPanel() {
       description: "A simulação nunca altera o produto real, a menos que você aplique.",
       widthClassName: "sm:max-w-lg",
       content: <ProductSimulator product={product} onDone={closeDrawer} />,
+    });
+  }
+
+  function openStockEntry(product: Product) {
+    openDrawer({
+      title: `Estoque — ${product.name}`,
+      description: "O estoque é a soma das movimentações — nada é digitado direto no saldo.",
+      content: <StockMovementForm initial={{ productId: product.id }} onDone={closeDrawer} />,
     });
   }
 
@@ -116,6 +135,25 @@ export function ProductsPanel() {
       },
     },
     {
+      key: "stock",
+      header: "Estoque",
+      align: "right",
+      render: (row) => {
+        const summary = summarizeProductStock(stocks, row.id);
+        if (!summary) return <span className="text-muted-foreground">Sem controle</span>;
+        return (
+          <div className="flex flex-col items-end">
+            <span className="text-foreground">{summary.units} {summary.units === 1 ? "peça" : "peças"}</span>
+            {summary.attentionCount > 0 ? (
+              <span className="text-caption text-[#92400e]">
+                {summary.attentionCount} {summary.attentionCount === 1 ? "variação em falta" : "variações em falta"}
+              </span>
+            ) : null}
+          </div>
+        );
+      },
+    },
+    {
       key: "status",
       header: "Status",
       render: (row) => <StatusBadge status={STATUS_MAP[row.status]} />,
@@ -135,6 +173,9 @@ export function ProductsPanel() {
             <DropdownMenuItem onSelect={() => openEdit(row)}>Editar</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => openSimulate(row)}>
               <FlaskConical /> Simular
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => openStockEntry(row)}>
+              <Boxes /> Movimentar estoque
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={() => handleDelete(row)}>

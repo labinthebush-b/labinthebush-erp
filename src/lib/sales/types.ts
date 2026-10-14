@@ -22,6 +22,10 @@ export type Discount = {
 export type SaleItem = {
   id: string;
   productId: string;
+  /** Tamanho vendido — presente quando o produto tem tamanhos cadastrados (ver lib/stock). */
+  size?: string;
+  /** Cor vendida — presente quando o produto tem cores cadastradas. */
+  color?: string;
   quantity: number;
   /** Preço unitário no momento da venda, em centavos — sugerido a partir do produto, editável. */
   unitPrice: number;

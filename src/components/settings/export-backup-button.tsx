@@ -8,6 +8,7 @@ import { buildBackupPayload } from "@/lib/backup/build-backup";
 import { useFinance } from "@/lib/finance/finance-provider";
 import { useSales } from "@/lib/sales/sales-provider";
 import { useCatalog } from "@/lib/catalog/catalog-provider";
+import { useStock } from "@/lib/stock/stock-provider";
 import { useContacts } from "@/lib/contacts/contacts-provider";
 import { useTasks } from "@/lib/tasks/tasks-provider";
 import { useSettings } from "@/lib/settings/settings-provider";
@@ -27,6 +28,7 @@ export function ExportBackupButton() {
   const { transactions, categories, recurringRules, monthClosings, installmentGroups } = useFinance();
   const { sales } = useSales();
   const { products } = useCatalog();
+  const { movements: stockMovements } = useStock();
   const { contacts } = useContacts();
   const { tasks } = useTasks();
   const { settings } = useSettings();
@@ -50,6 +52,7 @@ export function ExportBackupButton() {
         },
         sales,
         products,
+        stockMovements,
         contacts,
         tasks,
         canvas,

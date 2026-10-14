@@ -18,8 +18,11 @@ import { useCatalog } from "@/lib/catalog/catalog-provider";
 import { useSales } from "@/lib/sales/sales-provider";
 import { useSettings } from "@/lib/settings/settings-provider";
 import { deriveTaskNotifications } from "@/lib/tasks/notifications";
+import { useStock } from "@/lib/stock/stock-provider";
+import { listVariantStocks } from "@/lib/stock/calculations";
 import {
   deriveFinanceNotifications,
+  deriveLowStockNotifications,
   deriveMarginNotifications,
   deriveMonthClosingNotification,
   deriveSalesTodayNotification,
@@ -38,18 +41,25 @@ export function NotificationsMenu() {
   const { products } = useCatalog();
   const { sales } = useSales();
   const { settings } = useSettings();
+  const { movements } = useStock();
 
   const businessNotifications = React.useMemo(() => {
     const now = nowMs();
     const today = new Date(now).toISOString().slice(0, 10);
+    const stocks = listVariantStocks(
+      products.filter((p) => p.status !== "arquivado"),
+      movements,
+      settings.lowStockThreshold
+    );
     return [
       ...deriveTaskNotifications(tasks, today, now),
       ...deriveFinanceNotifications(transactions, today),
       ...deriveMonthClosingNotification(transactions, monthClosings, today),
       ...deriveMarginNotifications(products, settings.marginThresholdPercent, today),
+      ...deriveLowStockNotifications(stocks, (id) => products.find((p) => p.id === id)?.name, today),
       ...deriveSalesTodayNotification(sales, today),
     ].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  }, [tasks, transactions, monthClosings, products, sales, settings.marginThresholdPercent]);
+  }, [tasks, transactions, monthClosings, products, sales, movements, settings.marginThresholdPercent, settings.lowStockThreshold]);
 
   const allNotifications = [...businessNotifications, ...notifications];
   const unreadCount = allNotifications.filter((n) => !n.read).length;

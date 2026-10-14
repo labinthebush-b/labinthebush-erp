@@ -13,6 +13,7 @@ import {
 import { paymentToTransactionFields, type SalePaymentInput } from "./payment";
 import { useFinance } from "@/lib/finance/finance-provider";
 import { useCatalog } from "@/lib/catalog/catalog-provider";
+import { useStock } from "@/lib/stock/stock-provider";
 import { useSettings } from "@/lib/settings/settings-provider";
 import { useSupabaseReducer } from "@/lib/supabase/use-supabase-reducer";
 import { diffById } from "@/lib/supabase/diff-collection";
@@ -73,6 +74,7 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
   );
   const { addTransaction, updateTransaction, deleteTransaction } = useFinance();
   const { getProduct } = useCatalog();
+  const { syncSaleMovements, removeSaleMovements } = useStock();
   const { settings } = useSettings();
 
   const value = React.useMemo<SalesContextValue>(
@@ -139,6 +141,8 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
           updatedAt: timestamp,
         };
         dispatch({ type: "ADD_SALE", sale });
+        // Baixa o estoque dos itens (só dos produtos com estoque controlado).
+        syncSaleMovements({ saleId, date: input.date, items: input.items, previousItemIds: new Set() });
         return sale;
       },
 
@@ -222,6 +226,12 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
           },
           at: timestamp,
         });
+        syncSaleMovements({
+          saleId: id,
+          date: input.date,
+          items: input.items,
+          previousItemIds: new Set(existing.items.map((item) => item.id)),
+        });
       },
 
       setSalePayment(id: string, payment: SalePaymentInput) {
@@ -237,10 +247,21 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
           if (sale.shippingTransactionId) deleteTransaction(sale.shippingTransactionId);
           if (sale.nuvemshopFeeTransactionId) deleteTransaction(sale.nuvemshopFeeTransactionId);
         }
+        removeSaleMovements(id);
         dispatch({ type: "DELETE_SALE", id });
       },
     }),
-    [state, dispatch, addTransaction, updateTransaction, deleteTransaction, getProduct, settings.nuvemshopFeePercent]
+    [
+      state,
+      dispatch,
+      addTransaction,
+      updateTransaction,
+      deleteTransaction,
+      getProduct,
+      syncSaleMovements,
+      removeSaleMovements,
+      settings.nuvemshopFeePercent,
+    ]
   );
 
   return <SalesContext.Provider value={value}>{children}</SalesContext.Provider>;

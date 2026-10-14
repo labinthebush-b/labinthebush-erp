@@ -4,7 +4,7 @@ import { buildSaleItem } from "./calculations";
 let counter = 0;
 
 /** Builds a valid single-item SaleItem for tests, with sensible defaults that can be overridden. */
-export function makeSaleItem(overrides: Partial<Pick<SaleItem, "productId" | "quantity" | "unitPrice">> = {}): SaleItem {
+export function makeSaleItem(overrides: Partial<Pick<SaleItem, "productId" | "size" | "color" | "quantity" | "unitPrice">> = {}): SaleItem {
   return buildSaleItem({ productId: "p1", quantity: 1, unitPrice: 10000, ...overrides });
 }
 
