@@ -11,6 +11,7 @@
     "seed:dev": "tsx --env-file=.env.local scripts/seed-dev-data.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.134.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0",
