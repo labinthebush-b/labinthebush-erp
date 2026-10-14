@@ -6,7 +6,7 @@ export default function VendasPage() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Vendas"
-        description="Registro de vendas dos canais Nuvemshop, Instagram e WhatsApp para análise."
+        description="Pedidos dos canais Nuvemshop, Instagram e WhatsApp — pagamento, receita e lucro de cada venda."
       />
       <SalesPanel />
     </div>

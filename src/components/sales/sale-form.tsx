@@ -18,6 +18,8 @@ import {
 import { DrawerForm, DrawerFormActions } from "@/components/common/drawer-form";
 import { useContacts } from "@/lib/contacts/contacts-provider";
 import { useSales } from "@/lib/sales/sales-provider";
+import { useFinance } from "@/lib/finance/finance-provider";
+import { PAYMENT_LABELS, getSalePaymentStatus, indexTransactionsById, type SalePaymentInput } from "@/lib/sales/payment";
 import { useSettings } from "@/lib/settings/settings-provider";
 import { useUI } from "@/components/providers/ui-provider";
 import { ContactForm } from "@/components/contacts/contact-form";
@@ -53,8 +55,16 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
   const { contacts } = useContacts();
   const { addSale, updateSale } = useSales();
   const { settings } = useSettings();
+  const { transactions } = useFinance();
   const { openModal, closeModal } = useUI();
   const isEditing = Boolean(sale);
+
+  // "Pago"/"pendente" vem da transação de receita da venda (ver lib/sales/payment.ts).
+  // Uma venda cancelada (ou sem lançamento) não é editável por aqui: o campo
+  // fica como "pago" só como valor de exibição e nunca é enviado na edição.
+  const initialPaymentStatus = sale ? getSalePaymentStatus(sale, indexTransactionsById(transactions)) : "pago";
+  const paymentIsEditable = initialPaymentStatus === "pago" || initialPaymentStatus === "pendente";
+  const [payment, setPayment] = React.useState<SalePaymentInput>(initialPaymentStatus === "pendente" ? "pendente" : "pago");
 
   const [date, setDate] = React.useState<Date | undefined>(toDate(sale?.date) ?? new Date());
   const [contactId, setContactId] = React.useState(sale?.contactId ?? "");
@@ -109,6 +119,7 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
       shippingCost,
       channel,
       notes: notes || undefined,
+      payment: paymentIsEditable ? payment : undefined,
     };
 
     if (isEditing && sale) {
@@ -116,7 +127,11 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
       toast.success("Venda atualizada — o Financeiro foi recalculado.");
     } else {
       addSale(payload);
-      toast.success("Venda registrada — a receita já entrou no Financeiro.");
+      toast.success(
+        payment === "pendente"
+          ? "Venda registrada — o valor ficou em “A receber” no Financeiro."
+          : "Venda registrada — a receita já entrou no Financeiro."
+      );
     }
     onDone();
   }
@@ -201,6 +216,25 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
             </SelectContent>
           </Select>
         </Field>
+
+        {paymentIsEditable ? (
+          <Field
+            label="Pagamento"
+            hint="Pendente entra em “A receber” no Financeiro e só vira caixa quando você marcar a venda como paga."
+          >
+            <Select value={payment} onValueChange={(value) => setPayment(value as SalePaymentInput)}>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pago">Pago</SelectItem>
+                <SelectItem value="pendente">Pendente — a receber</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+        ) : (
+          <p className="text-caption text-muted-foreground">
+            O pagamento desta venda está como “{PAYMENT_LABELS[initialPaymentStatus]}” no Financeiro e não é alterado por aqui.
+          </p>
+        )}
 
         <Field label="Observações" optional>
           <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} />

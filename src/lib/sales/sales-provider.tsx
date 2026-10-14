@@ -10,6 +10,7 @@ import {
   reconcileNuvemshopFeeExpense,
   reconcileShippingExpense,
 } from "./calculations";
+import { paymentToTransactionFields, type SalePaymentInput } from "./payment";
 import { useFinance } from "@/lib/finance/finance-provider";
 import { useCatalog } from "@/lib/catalog/catalog-provider";
 import { useSettings } from "@/lib/settings/settings-provider";
@@ -43,12 +44,20 @@ export type NewSaleInput = {
   shippingCost?: number;
   channel: SalesChannel;
   notes?: string;
+  /**
+   * Na criação, "pago" quando omitido. Na edição, omitido = não mexe no
+   * status que a transação de receita já tem (preserva "cancelado", ou um
+   * status que o usuário tenha mudado direto no Financeiro).
+   */
+  payment?: SalePaymentInput;
 };
 
 type SalesContextValue = {
   sales: Sale[];
   addSale: (input: NewSaleInput) => Sale;
   updateSale: (id: string, input: NewSaleInput) => void;
+  /** Marca a venda como paga ou pendente — atualiza a transação de receita vinculada no Financeiro. */
+  setSalePayment: (id: string, payment: SalePaymentInput) => void;
   deleteSale: (id: string) => void;
 };
 
@@ -86,7 +95,14 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
         // `addTransaction` já existente do Financeiro, então "receita"
         // continua tendo uma única definição.
         const transaction = addTransaction(
-          buildIncomeTransactionInput({ date: input.date, totalAmount: breakdown.totalAmount, description, channel: input.channel, saleId })
+          buildIncomeTransactionInput({
+            date: input.date,
+            totalAmount: breakdown.totalAmount,
+            description,
+            channel: input.channel,
+            saleId,
+            payment: input.payment,
+          })
         );
 
         // Custo real de frete e taxa do canal nunca reduzem a receita — cada
@@ -140,10 +156,17 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
         const description = describeSaleItems(input.items, (pid) => getProduct(pid)?.name);
 
         // Sempre atualiza a mesma transação de receita — nunca cria uma segunda.
-        updateTransaction(
-          existing.transactionId,
-          buildIncomeTransactionInput({ date: input.date, totalAmount: breakdown.totalAmount, description, channel: input.channel, saleId: id })
-        );
+        // Sem `payment` explícito, status/vencimento ficam como estão (um
+        // simples ajuste de valor não pode "des-pagar" nem "des-cancelar").
+        const { status, dueDate, ...incomeChanges } = buildIncomeTransactionInput({
+          date: input.date,
+          totalAmount: breakdown.totalAmount,
+          description,
+          channel: input.channel,
+          saleId: id,
+          payment: input.payment,
+        });
+        updateTransaction(existing.transactionId, input.payment ? { ...incomeChanges, status, dueDate } : incomeChanges);
 
         // Mesma decisão usada na criação — nunca duplica frete/taxa ao
         // editar, e desvincula/remove quando o valor é zerado.
@@ -199,6 +222,12 @@ export function SalesProvider({ children }: { children: React.ReactNode }) {
           },
           at: timestamp,
         });
+      },
+
+      setSalePayment(id: string, payment: SalePaymentInput) {
+        const sale = state.sales.find((s) => s.id === id);
+        if (!sale) return;
+        updateTransaction(sale.transactionId, paymentToTransactionFields(payment, sale.date));
       },
 
       deleteSale(id: string) {

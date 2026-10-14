@@ -138,13 +138,39 @@ Até 2026-09-29 esta seção estava vazia de propósito (nada além das seções
 ### T5.3 — Camada de dados + tela "Marketing" no ERP (combina GA4 + Instagram) — bloqueada até T5.1 e T5.2 estarem prontas
 - **Objetivo**: uma única tela "Marketing" no ERP com os números das duas fontes, e as métricas derivadas que fazem sentido sem anúncios pagos (ex.: tráfego/engajamento orgânico vs. vendas — CAC e ROAS deixam de fazer sentido sozinhos sem gasto de mídia; reavaliar quais métricas derivadas cabem quando chegar aqui).
 - **Subtarefas**:
-  - [ ] **T5.3.a — Camada de dados**: nova migration (0004) com tabela de métricas diárias por fonte (ex.: `marketing_daily_metrics`), `user_id` + RLS igual às demais tabelas; sincronização idempotente (upsert por dia) para não duplicar em re-execuções.
+  - [ ] **T5.3.a — Camada de dados**: nova migration (0005 — a 0004 é a do estoque, T5.5) com tabela de métricas diárias por fonte (ex.: `marketing_daily_metrics`), `user_id` + RLS igual às demais tabelas; sincronização idempotente (upsert por dia) para não duplicar em re-execuções.
   - [ ] **T5.3.b — Tela "Marketing" no ERP**: cards/gráficos com os números de GA4 e Instagram lado a lado.
   - [ ] **T5.3.c — Testes**: funções puras (normalização de UTM, agregação por dia, o que for aplicável das métricas derivadas) com testes unitários, clients GA4/Instagram mockados como nos testes de `lib/ai/`.
 - **Critérios de conclusão**: sincronização roda no DEV sem erro e sem duplicar; números da tela batem com o GA4 e com o Instagram/Meta Business Suite para o mesmo período (conferência manual em 2–3 datas); `npm test`, `npm run lint` e `npm run build` passando; resultado documentado em `progress.md`.
 - **Conformidade**: LGPD. O ERP só consome métricas agregadas, não dados pessoais de visitantes/seguidores.
 - **Dependências**: T5.1.a/b (GA4: plano de mensuração + confirmar instrumentação da loja) e T5.2.c (Instagram: plano de mensuração) — os acessos das duas fontes (T5.1.c e T5.2.b) já estão prontos e testados.
 - **Prioridade**: Média.
+
+---
+
+### Fase "ERP de verdade" (pedida pelo usuário em 2026-10-13)
+
+> **Decisões do usuário**: estoque **por tamanho e cor**; pedido só com status **pago ou pendente** (sem ciclo de envio); publicação **em etapas** — Etapa 1 = o que já está na `dev` (vendas multi-produto + taxa Nuvemshop, depende de T3.1 e da migration 0003); Etapa 2 = T5.4–T5.7, desenvolvida na branch `feature/pedidos-estoque` para não contaminar a `dev` publicável. Nenhuma migration vai a produção sem aprovação explícita.
+
+### T5.4 — Pagamento da venda (pago / pendente) e tela de Vendas estilo ERP
+- **Objetivo**: toda venda hoje entra no Financeiro como "concluída". Passar a registrar se foi **paga** ou está **pendente** (a receber), e transformar a lista de vendas numa visão de pedidos: resumo no topo, filtro por pagamento, detalhe do pedido e ação rápida "marcar como pago".
+- **Decisão de arquitetura**: **sem coluna nova** — o status de pagamento da venda *é* o status da transação de receita já vinculada (`Sale.transactionId`), então o Financeiro continua sendo a única fonte de verdade ("A receber" já soma as pendentes). Sem migration.
+- **Critérios de conclusão**: formulário com campo "Pagamento"; editar uma venda não reverte o status; marcar como pago/pendente reflete no Financeiro; KPIs (vendas do mês, a receber, ticket médio, lucro estimado) com função pura testada; detalhe do pedido com itens, descontos, frete, taxa, custo e lucro.
+- **Dependências**: nenhuma. **Prioridade**: Alta.
+
+### T5.5 — Estoque por tamanho e cor
+- **Objetivo**: saber quantas peças existem de cada tamanho/cor, baixar o estoque a cada venda e avisar quando estiver acabando.
+- **Decisão de arquitetura**: razão de movimentações (`stock_movements`: entrada, saída, ajuste), no mesmo molde de Venda → Transação — estoque atual = soma dos movimentos; cada item de venda gera/atualiza/remove o seu movimento de saída. A variante é a dupla (tamanho, cor) tirada de `Product.sizes`/`Product.colors` (já existentes). Migration **0004** (`stock_movements` + `size`/`color` em `sale_items` + limite de estoque baixo em `settings`), com RLS igual às demais tabelas.
+- **Critérios de conclusão**: venda pede tamanho/cor quando o produto tem; baixa/ajuste/remoção de estoque ao criar/editar/excluir venda (testado); entrada manual de estoque; página Estoque; alerta de estoque baixo nas notificações; produto **sem** movimentação nunca bloqueia nem avisa (estoque "não controlado" — não quebra o fluxo atual).
+- **Dependências**: T5.4 (mesmo painel de vendas). **Prioridade**: Alta.
+
+### T5.6 — Navegação e Dashboard orientados à ação
+- **Objetivo**: sidebar agrupada por área (Vendas, Produtos e estoque, Financeiro, Relacionamento, Gestão) e Dashboard com o que exige ação (a receber, estoque baixo, tarefas), em vez de só números.
+- **Dependências**: T5.4 e T5.5. **Prioridade**: Média.
+
+### T5.7 — Publicação da Etapa 1 e da Etapa 2 em produção
+- **Objetivo**: promover `dev` → `main` (Etapa 1) e depois `feature/pedidos-estoque` → `dev` → `main` (Etapa 2), cada uma com a(s) migration(s) aplicada(s) **por você** no SQL Editor de produção, na ordem 0003 → 0004.
+- **Dependências**: T3.1 validada no DEV; aprovação explícita; push no GitHub liberado (T1.1). **Prioridade**: Alta.
 
 ---
 

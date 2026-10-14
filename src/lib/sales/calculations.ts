@@ -1,6 +1,7 @@
 import { calculateProductCost } from "@/lib/catalog/calculations";
 import type { Product } from "@/lib/catalog/types";
 import type { NewTransactionInput } from "@/lib/finance/actions";
+import { paymentToTransactionFields, type SalePaymentInput } from "./payment";
 import type { Discount, Sale, SaleItem, SalesChannel } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -53,6 +54,16 @@ export function calculateSaleProfit(sale: Sale, getProduct: (id: string) => Prod
 }
 
 /**
+ * Resultado da venda depois de TUDO que ela custou: produtos, frete real e
+ * taxa do canal. É o "lucro de verdade" — `calculateSaleProfit` (acima) mantém
+ * a definição histórica (receita − produtos) usada nas listas e relatórios,
+ * enquanto esta é a que o detalhe do pedido mostra ao lado dela.
+ */
+export function calculateSaleContribution(sale: Sale, getProduct: (id: string) => Product | undefined): number {
+  return calculateSaleProfit(sale, getProduct) - (sale.shippingCost ?? 0) - (sale.nuvemshopFeeAmount ?? 0);
+}
+
+/**
  * Parte do `totalAmount` da venda atribuível a um item específico,
  * proporcional ao peso do subtotal desse item sobre o subtotal da venda toda
  * — usada pelos relatórios por produto para não estourar/faltar receita
@@ -90,7 +101,10 @@ export function buildIncomeTransactionInput(input: {
   description: string;
   channel: string;
   saleId?: string;
+  /** "pago" (padrão) entra no caixa; "pendente" entra em "A receber" até ser marcada como paga. */
+  payment?: SalePaymentInput;
 }): NewTransactionInput {
+  const { status, dueDate } = paymentToTransactionFields(input.payment ?? "pago", input.date);
   return {
     type: "income",
     amount: input.totalAmount,
@@ -98,7 +112,8 @@ export function buildIncomeTransactionInput(input: {
     category: "venda", // Category["id"] from lib/finance/categories.ts (group "receita")
     description: `Venda — ${input.description} (${input.channel})`,
     paymentSource: "conta_marca",
-    status: "concluido",
+    status,
+    dueDate,
     relations: input.saleId ? { saleId: input.saleId } : undefined,
   };
 }

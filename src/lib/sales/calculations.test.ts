@@ -3,6 +3,7 @@ import {
   buildSaleItem,
   calculateSaleCost,
   calculateSaleProfit,
+  calculateSaleContribution,
   calculateItemsSubtotal,
   allocateItemRevenue,
   describeSaleItems,
@@ -134,6 +135,56 @@ describe("buildIncomeTransactionInput", () => {
   it("com saleId, relaciona a transação de receita à venda", () => {
     const input = buildIncomeTransactionInput({ date: "2026-09-10", totalAmount: 12900, description: "Camiseta", channel: "Instagram", saleId: "sale-1" });
     expect(input.relations).toEqual({ saleId: "sale-1" });
+  });
+});
+
+describe("buildIncomeTransactionInput — pagamento", () => {
+  const base = { date: "2026-09-10", totalAmount: 12900, description: "Camiseta", channel: "Instagram" };
+
+  it("sem informar o pagamento, a venda continua entrando como concluída (comportamento anterior)", () => {
+    const input = buildIncomeTransactionInput(base);
+    expect(input.status).toBe("concluido");
+    expect(input.dueDate).toBeUndefined();
+  });
+
+  it("pago: concluído, sem vencimento", () => {
+    const input = buildIncomeTransactionInput({ ...base, payment: "pago" });
+    expect(input.status).toBe("concluido");
+    expect(input.dueDate).toBeUndefined();
+  });
+
+  it("pendente: fica como pendente com vencimento na data da venda (vai para 'A receber')", () => {
+    const input = buildIncomeTransactionInput({ ...base, payment: "pendente" });
+    expect(input.status).toBe("pendente");
+    expect(input.dueDate).toBe("2026-09-10");
+    expect(input.type).toBe("income");
+  });
+});
+
+describe("calculateSaleContribution", () => {
+  it("sem frete nem taxa, é igual ao lucro histórico (total − custo dos produtos)", () => {
+    const sale = makeSale({ items: [buildSaleItem({ productId: "prod-1", quantity: 1, unitPrice: 12900 })], totalAmount: 12900 });
+    expect(calculateSaleContribution(sale, getProduct)).toBe(calculateSaleProfit(sale, getProduct));
+  });
+
+  it("desconta o custo real do frete e a taxa do canal", () => {
+    const sale = makeSale({
+      items: [buildSaleItem({ productId: "prod-1", quantity: 1, unitPrice: 12900 })],
+      totalAmount: 12900,
+      shippingCost: 1800,
+      nuvemshopFeeAmount: 645,
+    });
+    expect(calculateSaleContribution(sale, getProduct)).toBe(12900 - 5700 - 1800 - 645);
+  });
+
+  it("frete grátis concedido: o custo do frete pesa no resultado mesmo sem ter sido cobrado do cliente", () => {
+    const sale = makeSale({
+      items: [buildSaleItem({ productId: "prod-1", quantity: 1, unitPrice: 12900 })],
+      totalAmount: 12900,
+      shippingAmount: 0,
+      shippingCost: 2500,
+    });
+    expect(calculateSaleContribution(sale, getProduct)).toBe(12900 - 5700 - 2500);
   });
 });
 

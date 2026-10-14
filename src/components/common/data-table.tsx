@@ -23,12 +23,15 @@ export function DataTable<T extends { id: string }>({
   emptyTitle = "Nada por aqui ainda",
   emptyDescription = "Quando houver registros, eles aparecem nesta tabela.",
   emptyAction,
+  onRowClick,
 }: {
   columns: DataTableColumn<T>[];
   data: T[];
   emptyTitle?: string;
   emptyDescription?: string;
   emptyAction?: React.ReactNode;
+  /** Makes each row clickable (and keyboard-activatable). Controls inside a cell that must not trigger it (e.g. an actions menu) should stop click propagation. */
+  onRowClick?: (row: T) => void;
 }) {
   if (data.length === 0) {
     return <EmptyState title={emptyTitle} description={emptyDescription} action={emptyAction} />;
@@ -55,7 +58,22 @@ export function DataTable<T extends { id: string }>({
         </TableHeader>
         <TableBody>
           {data.map((row) => (
-            <TableRow key={row.id}>
+            <TableRow
+              key={row.id}
+              {...(onRowClick
+                ? {
+                    tabIndex: 0,
+                    className: "cursor-pointer",
+                    onClick: () => onRowClick(row),
+                    onKeyDown: (event: React.KeyboardEvent) => {
+                      if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+                        event.preventDefault();
+                        onRowClick(row);
+                      }
+                    },
+                  }
+                : {})}
+            >
               {columns.map((column) => (
                 <TableCell
                   key={column.key}
