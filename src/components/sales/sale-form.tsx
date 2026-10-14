@@ -99,8 +99,16 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
 
   const breakdown = calculateSaleBreakdown({ items, discounts, shippingCost, channel, nuvemshopFeePercent: settings.nuvemshopFeePercent });
   const shortages = React.useMemo(
-    () => findStockShortages({ items, movements, editingSaleId: sale?.id, previousItemIds }),
-    [items, movements, sale?.id, previousItemIds]
+    () =>
+      findStockShortages({
+        // Só avisa depois que tamanho/cor estão escolhidos — antes disso a
+        // variação está incompleta e o "estoque 0" seria falso.
+        items: items.filter((item) => missingVariantChoice(products.find((p) => p.id === item.productId), item) === null),
+        movements,
+        editingSaleId: sale?.id,
+        previousItemIds,
+      }),
+    [items, products, movements, sale?.id, previousItemIds]
   );
 
   function handleSubmit() {
