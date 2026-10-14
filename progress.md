@@ -70,6 +70,12 @@ Todas as 16 tabelas esperadas (13 da 0001 + 2 da 0002 + `sale_items` da 0003) ex
 - ✅ As 4 env vars reais do app (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_ENV`) continuam com os mesmos nomes — nenhuma renomeação feita nesta etapa, como pedido.
 - ⏸️ Environment variables do ambiente Preview da Vercel — ainda não verificadas (depende de um token da Vercel, não pedido nesta etapa).
 
+_Décima quinta atualização, 2026-10-13 — **Fase "ERP de verdade"** (pedida pelo usuário: "pareça mais um ERP de verdade, mais intuitivo"). Decisões dele: estoque **por tamanho e cor**; pedido só **pago/pendente**; publicação **em etapas**. Trabalho na branch `feature/pedidos-estoque` (a `dev` fica publicável como Etapa 1). Na `dev`, antes: PWA instalável (manifesto, ícones do logo, proxy liberando `/manifest.webmanifest`) e `DataLoadGate` (skeleton em vez do falso "Nenhuma venda registrada" durante o fetch) — 316 testes._
+
+_**T5.4** (commit `4908399`): pagamento da venda (pago/pendente) **sem coluna nova** — o status é o da transação de receita vinculada; "A receber" do Financeiro já soma as pendentes. Lista de vendas com resumo (receita do mês + variação, a receber, ticket médio, lucro), abas por pagamento, linha clicável e detalhe do pedido (itens, descontos, frete, taxa, resultado após frete e taxa). +20 testes._
+
+_**T5.5** (commit `2fbab94`): estoque por tamanho e cor. Razão de movimentações (`stock_movements`), saldo = soma; cada item de venda gera/atualiza/remove a sua saída. **Migration 0004 criada e NÃO aplicada em nenhum banco** (nem DEV) — precisa do SQL Editor, primeiro no DEV. Produto sem nenhuma movimentação segue "sem controle" (venda não baixa nem avisa), edição de venda antiga não baixa retroativamente. Tela Estoque, coluna em Produtos, alertas, configuração de limite, backup. Removidas as notificações **fictícias** do `UIProvider`. +71 testes; mutação manual de 4 regras críticas, todas detectadas. Suíte 407/407, lint e build ok. **Não verificado na UI logada** (sem credencial DEV nesta sessão): conferir manualmente depois de aplicar a 0004 no DEV._
+
 ## Current phase
 
 Pós-Fase 6 (deploy já aprovado e feito em produção) — expansão pós-deploy: Integração com IA + Vendas multi-produto, desenvolvidas na branch `dev`, aguardando ambiente de DEV utilizável antes de qualquer teste real ou promoção para `main`.
