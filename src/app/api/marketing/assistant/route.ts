@@ -1,12 +1,6 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
-import {
-  ASSISTANT_SYSTEM_PROMPT,
-  SUGGEST_TASKS_TOOL,
-  assistantRequestSchema,
-  renderSnapshotMessage,
-  suggestTasksInputSchema,
-} from "@/lib/marketing/assistant";
+import { SUGGEST_TASKS_TOOL, assistantRequestSchema, renderSnapshotMessage, suggestTasksInputSchema } from "@/lib/marketing/assistant";
+import { GeminiError, streamGemini } from "@/lib/marketing/gemini";
 
 // Resposta em NDJSON (uma linha JSON por evento) para a tela ir mostrando o
 // texto enquanto a IA escreve:
@@ -27,11 +21,9 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser();
   if (!user) return Response.json({ error: "Não autenticado." }, { status: 401 });
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    return Response.json(
-      { error: "A IA ainda não está configurada: falta a variável ANTHROPIC_API_KEY no servidor." },
-      { status: 503 }
-    );
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return Response.json({ error: "A IA ainda não está configurada: falta a variável GEMINI_API_KEY no servidor." }, { status: 503 });
   }
 
   const parsed = assistantRequestSchema.safeParse(await request.json().catch(() => null));
@@ -41,65 +33,33 @@ export async function POST(request: Request) {
     return Response.json({ error: "A última mensagem precisa ser do usuário." }, { status: 400 });
   }
 
-  // O retrato dos dados entra junto da ÚLTIMA pergunta (não no system), para
-  // as instruções fixas continuarem cacheadas entre perguntas.
-  const history: Anthropic.Beta.BetaMessageParam[] = messages.map((m, index) =>
-    index === messages.length - 1
-      ? {
-          role: "user",
-          content: [
-            { type: "text", text: renderSnapshotMessage(snapshot) },
-            { type: "text", text: m.content },
-          ],
-        }
-      : { role: m.role, content: m.content }
-  );
-
-  const client = new Anthropic();
   const encoder = new TextEncoder();
-
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
       const send = (event: StreamEvent) => controller.enqueue(encoder.encode(JSON.stringify(event) + "\n"));
       try {
-        const stream = client.beta.messages.stream(
-          {
-            model: "claude-opus-5-5",
-            max_tokens: 8000,
-            // Recusa por segurança é reencaminhada no servidor para outro modelo (ver skill claude-api).
-            betas: ["server-side-fallback-2026-07-01"],
-            fallbacks: "default",
-            output_config: { effort: "medium" },
-            system: [{ type: "text", text: ASSISTANT_SYSTEM_PROMPT, cache_control: { type: "ephemeral" } }],
-            tools: [{ ...SUGGEST_TASKS_TOOL, strict: true, eager_input_streaming: true }],
-            tool_choice: { type: "auto" },
-            messages: history,
-          },
-          { signal: request.signal }
-        );
-
-        stream.on("text", (text) => send({ type: "text", text }));
-        const final = await stream.finalMessage();
-
-        if (final.stop_reason === "refusal") {
-          send({ type: "error", message: "A IA não pôde responder a essa pergunta. Tente reformular." });
-        } else {
-          for (const block of final.content) {
-            if (block.type !== "tool_use" || block.name !== SUGGEST_TASKS_TOOL.name) continue;
-            // Com eager_input_streaming a API não valida o input: validamos aqui.
-            const tasks = suggestTasksInputSchema.safeParse(block.input);
+        for await (const event of streamGemini({ apiKey, messages, snapshotText: renderSnapshotMessage(snapshot), signal: request.signal })) {
+          if (event.type === "text") send({ type: "text", text: event.text });
+          else if (event.type === "function_call" && event.name === SUGGEST_TASKS_TOOL.name) {
+            // O Gemini não garante o formato: validamos antes de mostrar.
+            const tasks = suggestTasksInputSchema.safeParse(event.args);
             if (tasks.success) send({ type: "tasks", tasks: tasks.data.tasks });
-          }
-          if (final.stop_reason === "max_tokens") {
+          } else if (event.type === "blocked") {
+            send({ type: "error", message: "A IA não pôde responder a essa pergunta. Tente reformular." });
+          } else if (event.type === "max_tokens") {
             send({ type: "error", message: "A resposta ficou longa demais e foi cortada." });
           }
         }
         send({ type: "done" });
       } catch (error) {
         let message = "Não foi possível falar com a IA agora.";
-        if (error instanceof Anthropic.AuthenticationError) message = "A chave da IA (ANTHROPIC_API_KEY) é inválida.";
-        else if (error instanceof Anthropic.RateLimitError) message = "Muitas perguntas seguidas — espere um pouco e tente de novo.";
-        else if (error instanceof Anthropic.APIError) message = `A IA respondeu com erro ${error.status}.`;
+        if (error instanceof GeminiError) {
+          if (error.status === 400 || error.status === 401 || error.status === 403) message = "A chave do Gemini (GEMINI_API_KEY) foi recusada.";
+          else if (error.status === 429) message = "Limite de uso do Gemini atingido — espere um pouco e tente de novo.";
+          else message = `A IA respondeu com erro ${error.status}.`;
+        } else if ((error as Error).name === "AbortError") {
+          message = "Resposta interrompida.";
+        }
         send({ type: "error", message });
       } finally {
         controller.close();
