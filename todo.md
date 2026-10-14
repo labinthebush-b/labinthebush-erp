@@ -81,7 +81,8 @@ Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclus
 - **Dependências**: T1.2 (dados de exemplo facilitam, mas não são obrigatórios — pode ser testado com um produto cadastrado manualmente).
 - **Prioridade**: Alta.
 
-### T3.2 — Validar a integração com IA (MCP) ponta a ponta
+### T3.2 — Validar a integração com IA (MCP) ponta a ponta — ✅ VALIDADA NO DEV (2026-10-14)
+> Chave gerada pela UI (DEV), chamadas JSON-RPC reais a `/api/mcp`: initialize 200, 10 ferramentas listadas, sem chave 401; `get_caixa`/`get_vendas`/`get_produtos`/`get_contas_a_pagar_receber` batem com o banco; propose não grava (caixa inalterado), cancel descarta, confirmar cancelada e confirmar duas vezes são recusados, confirm grava (caixa 142 → 132). Chave revogada pela UI → 401. Observação: a lista de chaves mostrou "nunca usada" logo após o uso — conferir se `last_used_at` atualiza (pode ser só a lista sem recarregar). Ficou no DEV a despesa "TESTE MCP confirmado" (R$ 10).
 - **Objetivo**: primeira verificação real do fluxo consulta + propose/confirm de lançamento via `/api/mcp`.
 - **Contexto**: código completo (endpoint, chaves de API, ferramentas de consulta e de lançamento), migration aplicada, mas nunca testado com uma chave de API real gerada pela UI.
 - **Critérios de conclusão**: gerar uma chave em Configurações → Integração com IA (apontando para o DEV); chamar `/api/mcp` com essa chave; rodar uma consulta (`get_caixa` ou similar) e conferir resposta coerente com os dados do DEV; propor um lançamento (`propose_transaction`) e confirmar (`confirm_transaction`); conferir que a transação aparece no Financeiro exatamente como o preview prometeu.
