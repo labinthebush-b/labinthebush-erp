@@ -38,11 +38,18 @@ function readStoredUrl(): string {
  * Gera o link rastreável para colocar no Instagram/WhatsApp: é o que permite,
  * depois, o Google Analytics dizer de onde veio cada visita (meio do funil).
  */
-export function UtmBuilder({ onDone }: { onDone: () => void }) {
+export function UtmBuilder({
+  onDone,
+  preset,
+}: {
+  onDone: () => void;
+  /** Link de uma campanha cadastrada: source/medium/campaign vêm dela e ficam travados; só o "content" é livre. */
+  preset?: { source: string; medium: string; campaign: string };
+}) {
   const [base, setBase] = React.useState(readStoredUrl);
-  const [source, setSource] = React.useState("instagram");
-  const [medium, setMedium] = React.useState("stories");
-  const [campaign, setCampaign] = React.useState("");
+  const [source, setSource] = React.useState(preset?.source ?? "instagram");
+  const [medium, setMedium] = React.useState(preset?.medium ?? "stories");
+  const [campaign, setCampaign] = React.useState(preset?.campaign ?? "");
   const [content, setContent] = React.useState("");
 
   const url = campaign.trim() ? buildUtmUrl(base, { source, medium, campaign, content }) : null;
@@ -68,7 +75,12 @@ export function UtmBuilder({ onDone }: { onDone: () => void }) {
       <Field label="Link da loja ou do produto" hint="Fica lembrado neste aparelho.">
         <Input value={base} onChange={(e) => setBase(e.target.value)} placeholder="https://sualoja.com.br/produtos/camiseta" />
       </Field>
-      <div className="grid grid-cols-2 gap-3">
+      {preset ? (
+        <p className="rounded-lg bg-paper-mist p-2 text-caption text-muted-foreground">
+          Da campanha: utm_source=<b>{preset.source}</b> · utm_medium=<b>{preset.medium}</b> · utm_campaign=<b>{preset.campaign}</b>
+        </p>
+      ) : null}
+      <div className={preset ? "hidden" : "grid grid-cols-2 gap-3"}>
         <Field label="Onde vai postar">
           <Select value={source} onValueChange={setSource}>
             <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
@@ -86,10 +98,12 @@ export function UtmBuilder({ onDone }: { onDone: () => void }) {
           </Select>
         </Field>
       </div>
-      <Field label="Campanha" hint="Ex.: drop NREM, coleção verão. Vira “drop-nrem”.">
-        <Input value={campaign} onChange={(e) => setCampaign(e.target.value)} placeholder="drop NREM" />
-      </Field>
-      <Field label="Identificador do link" optional hint="Para diferenciar dois links da mesma campanha.">
+      {preset ? null : (
+        <Field label="Campanha" hint="Ex.: drop NREM, coleção verão. Vira “drop-nrem”.">
+          <Input value={campaign} onChange={(e) => setCampaign(e.target.value)} placeholder="drop NREM" />
+        </Field>
+      )}
+      <Field label="Identificador do link" optional hint="utm_content — ex.: “stories 1”, “bio”, “post carrossel”. Diferencia os links da mesma campanha.">
         <Input value={content} onChange={(e) => setContent(e.target.value)} placeholder="stories 1" />
       </Field>
 

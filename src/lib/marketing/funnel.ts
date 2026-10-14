@@ -143,8 +143,8 @@ export function deriveFunnelInsights(params: {
         stage: "topo",
         severity: "oportunidade",
         title: `Engajamento baixo (${engagement.toFixed(1)}% do alcance)`,
-        description: "Muita gente vê, pouca gente interage. Conteúdos com pergunta, bastidor ou enquete costumam puxar conversa.",
-        action: { label: "Planejar um post", kind: "task", taskTitle: "Post Instagram: conteúdo de engajamento (enquete/bastidor)" },
+        description: "Muita gente vê, pouca gente interage. Compare os posts que mais engajaram para ver o que eles têm em comum.",
+        action: { label: "Ver posts no Instagram", kind: "external", href: `https://www.instagram.com/${params.instagramUsername ?? "labinthebush"}/` },
       });
     }
   }

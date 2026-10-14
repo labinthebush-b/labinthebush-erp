@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowRight, CalendarPlus, ExternalLink, Link2, Megaphone, RefreshCw, ShoppingBag, UserPlus, Wallet, AlertTriangle, Lightbulb } from "lucide-react";
+import { ArrowDown, ArrowRight, ExternalLink, Link2, Megaphone, RefreshCw, ShoppingBag, UserPlus, Wallet, AlertTriangle, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -26,11 +26,7 @@ import { formatCurrencyCents } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 import { buildSalesFunnel, deriveFunnelInsights, type FunnelInsight, type FunnelSource, type FunnelStage, type FunnelStageId } from "@/lib/marketing/funnel";
 import type { MarketingPeriodDays, MarketingResponse } from "@/lib/marketing/types";
-import type { MarketingSnapshot } from "@/lib/marketing/assistant";
-import { MarketingAssistant } from "@/components/marketing/marketing-assistant";
-import { useStock } from "@/lib/stock/stock-provider";
-import { listVariantStocks, summarizeProductStock } from "@/lib/stock/calculations";
-import { calculateMargin, calculateProductCost } from "@/lib/catalog/calculations";
+import { CampaignsSection } from "@/components/marketing/campaigns-section";
 
 const integer = new Intl.NumberFormat("pt-BR");
 
@@ -116,8 +112,7 @@ export function MarketingPanel() {
 
   const { sales } = useSales();
   const { transactions } = useFinance();
-  const { getProduct, products } = useCatalog();
-  const { movements } = useStock();
+  const { getProduct } = useCatalog();
   const { contacts } = useContacts();
   const { settings } = useSettings();
   const { openDrawer, closeDrawer, openModal, closeModal } = useUI();
@@ -171,59 +166,6 @@ export function MarketingPanel() {
   const funnel = buildSalesFunnel({ instagram, ga4, erp });
   const insights = deriveFunnelInsights({ instagram, ga4, erp });
 
-  // Retrato que vai junto de cada pergunta à IA: os mesmos números da tela,
-  // mais o que só o ERP sabe (canais, margem, estoque, o que vendeu).
-  const buildSnapshot = (brandNotes: string): MarketingSnapshot => {
-    const today = todayISO();
-    const range = resolvePeriodRange("personalizado", today, { start: addDaysISO(today, -(days - 1)), end: today });
-    const inPeriod = sales.filter((s) => isWithinRange(s.date, range));
-    const byChannel = new Map<string, { count: number; revenue: number }>();
-    for (const sale of inPeriod) {
-      const entry = byChannel.get(sale.channel) ?? { count: 0, revenue: 0 };
-      byChannel.set(sale.channel, { count: entry.count + 1, revenue: entry.revenue + sale.totalAmount });
-    }
-    const stocks = listVariantStocks(products, movements, settings.lowStockThreshold);
-    const toBRL = (cents: number) => Math.round(cents) / 100;
-    return {
-      periodDays: days,
-      today,
-      funnel: funnel.map((stage) => ({
-        stage: stage.title,
-        metrics: stage.metrics.map((m) => ({
-          label: m.label,
-          source: m.source,
-          value: m.value ?? null,
-          ratePercentFromPrevious: m.rateFromPrevious === undefined ? null : Math.round(m.rateFromPrevious * 10) / 10,
-          parallel: !m.inPath,
-        })),
-      })),
-      diagnostics: insights.map((i) => ({ title: i.title, description: i.description })),
-      instagram: instagram ?? null,
-      sales: {
-        count: erp.salesCount,
-        revenueBRL: toBRL(erp.revenue),
-        averageTicketBRL: erp.salesCount > 0 ? toBRL(erp.revenue / erp.salesCount) : 0,
-        receivableCount: erp.receivableCount,
-        receivableBRL: toBRL(erp.receivableAmount),
-        byChannel: [...byChannel].map(([channel, v]) => ({ channel, count: v.count, revenueBRL: toBRL(v.revenue) })),
-      },
-      products: products
-        .filter((p) => p.status !== "arquivado")
-        .slice(0, 40)
-        .map((p) => {
-          const cost = calculateProductCost(p.costComponents);
-          return {
-            name: p.name,
-            priceBRL: p.price ? toBRL(p.price) : null,
-            marginPercent: p.price ? Math.round(calculateMargin(p.price, cost).marginPercent) : null,
-            unitsInStock: summarizeProductStock(stocks, p.id)?.units ?? null,
-            soldInPeriod: inPeriod.reduce((sum, s) => sum + s.items.filter((i) => i.productId === p.id).reduce((q, i) => q + i.quantity, 0), 0),
-          };
-        }),
-      openLeads: erp.openLeads,
-      brandNotes,
-    };
-  };
   const sourceErrors = [data && !data.ga4.ok ? data.ga4.error : null, data && !data.instagram.ok ? data.instagram.error : null].filter(Boolean) as string[];
 
   function newTask(title: string) {
@@ -246,9 +188,6 @@ export function MarketingPanel() {
   const stageActions: Record<FunnelStageId, React.ReactNode> = {
     topo: (
       <>
-        <Button size="sm" variant="outline" onClick={() => newTask("Post Instagram: ")}>
-          <CalendarPlus className="size-3.5" /> Planejar post
-        </Button>
         <Button size="sm" variant="outline" asChild>
           <a href="https://www.instagram.com/labinthebush/" target="_blank" rel="noreferrer">
             <ExternalLink className="size-3.5" /> Abrir Instagram
@@ -319,7 +258,7 @@ export function MarketingPanel() {
         <p key={message} className="rounded-lg bg-paper-mist p-3 text-caption text-muted-foreground">{message}</p>
       ))}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="flex flex-col gap-2">
           {funnel.map((stage, index) => (
             <React.Fragment key={stage.id}>
@@ -333,7 +272,6 @@ export function MarketingPanel() {
         </div>
 
         <div className="flex flex-col gap-4">
-        <MarketingAssistant buildSnapshot={buildSnapshot} ready={!loading && Boolean(data)} />
         <Card className="h-fit">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><Megaphone className="size-4" /> O que fazer agora</CardTitle>
@@ -382,6 +320,8 @@ export function MarketingPanel() {
         </Card>
         </div>
       </div>
+
+      <CampaignsSection />
     </div>
   );
 }

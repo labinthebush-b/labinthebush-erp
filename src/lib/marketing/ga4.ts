@@ -40,15 +40,40 @@ async function getAccessToken(email: string, privateKey: string): Promise<string
   return body.access_token as string;
 }
 
-export async function fetchGa4Summary(days: MarketingPeriodDays): Promise<Ga4Summary> {
+async function reportClient() {
   const email = process.env.GA4_SERVICE_ACCOUNT_EMAIL;
   const rawKey = process.env.GA4_SERVICE_ACCOUNT_PRIVATE_KEY;
   const propertyId = process.env.GA4_PROPERTY_ID;
   if (!email || !rawKey || !propertyId) throw new Error("GA4 não configurado neste ambiente.");
-
   // Em .env/Vercel a chave costuma vir com "\n" literais em vez de quebras de linha.
   const token = await getAccessToken(email, rawKey.replace(/\\n/g, "\n"));
-  const url = `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport`;
+  return { token, url: `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport` };
+}
+
+/**
+ * Sessões no site que chegaram com uma utm_campaign específica, num período
+ * (yyyy-MM-dd). Depende de o visitante ter usado o link rastreável.
+ */
+export async function fetchCampaignSessions(utmCampaign: string, start: string, end: string): Promise<{ sessions: number; users: number }> {
+  const { token, url } = await reportClient();
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({
+      dateRanges: [{ startDate: start, endDate: end }],
+      metrics: [{ name: "sessions" }, { name: "totalUsers" }],
+      dimensionFilter: { filter: { fieldName: "sessionCampaignName", stringFilter: { matchType: "EXACT", value: utmCampaign, caseSensitive: false } } },
+    }),
+    cache: "no-store",
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(describeApiError("GA4", res.status, json));
+  const values = (json as { rows?: { metricValues?: { value?: string }[] }[] }).rows?.[0]?.metricValues ?? [];
+  return { sessions: Number(values[0]?.value ?? 0) || 0, users: Number(values[1]?.value ?? 0) || 0 };
+}
+
+export async function fetchGa4Summary(days: MarketingPeriodDays): Promise<Ga4Summary> {
+  const { token, url } = await reportClient();
   const dateRanges = [{ startDate: `${days}daysAgo`, endDate: "today" }];
 
   async function runReport(body: object) {
