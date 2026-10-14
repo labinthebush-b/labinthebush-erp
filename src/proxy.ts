@@ -57,7 +57,9 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Every route except static assets and the Next.js image optimizer.
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Every route except static assets, the Next.js image optimizer and the PWA
+    // manifest — browsers fetch the manifest without the auth cookie, so
+    // redirecting it to /login would make the app impossible to install.
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

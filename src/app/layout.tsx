@@ -16,6 +16,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ERP da Marca",
   description: "Sistema operacional interno da marca.",
+  appleWebApp: { capable: true, title: "ERP LITB", statusBarStyle: "default" },
 };
 
 // Deliberately minimal: no domain providers and no AppShell here — those
