@@ -44,6 +44,11 @@ describe("proxy.config.matcher (login obrigatório)", () => {
     expect(matcher.test("/favicon.ico")).toBe(false);
   });
 
+  it("passa pelas rotas /api (para renovar a sessão); /api/mcp é tratada dentro do proxy", () => {
+    expect(matcher.test("/api/marketing")).toBe(true);
+    expect(matcher.test("/api/mcp")).toBe(true);
+  });
+
   it("continua protegendo as páginas do app", () => {
     for (const route of ["/", "/financeiro", "/vendas", "/configuracoes", "/login"]) {
       expect(matcher.test(route), route).toBe(true);

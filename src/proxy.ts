@@ -7,13 +7,18 @@ import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
 // standard @supabase/ssr proxy (formerly "middleware", renamed in Next.js 16)
 // pattern for the Next.js App Router.
 export async function proxy(request: NextRequest) {
-  // API routes authenticate themselves (e.g. /api/mcp checks its own
-  // "Authorization: Bearer <api key>" header — see src/lib/ai/context.ts)
-  // and are called by external clients that never hold a Supabase session
-  // cookie. Redirecting them to /login here would break every such call.
-  if (request.nextUrl.pathname.startsWith("/api/")) {
+  // /api/mcp authenticates itself ("Authorization: Bearer <api key>" — see
+  // src/lib/ai/context.ts) and is called by external clients that never hold
+  // a Supabase session cookie: it skips the proxy entirely. No /api route is
+  // ever redirected to /login.
+  if (request.nextUrl.pathname.startsWith("/api/mcp")) {
     return NextResponse.next();
   }
+  // Rotas internas do próprio app (ex.: /api/marketing) checam a sessão elas
+  // mesmas e respondem 401 — mas precisam que o cookie de auth seja renovado
+  // aqui, como em qualquer página; sem isso, um token expirado fazia a
+  // primeira chamada falhar com 401 mesmo com o usuário logado.
+  const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
 
   let response = NextResponse.next({ request });
 
@@ -37,6 +42,8 @@ export async function proxy(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (isApiRoute) return response;
 
   const isLoginRoute = request.nextUrl.pathname.startsWith("/login");
 

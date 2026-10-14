@@ -9,6 +9,7 @@ import {
   PenTool,
   BarChart3,
   Settings,
+  Megaphone,
   type LucideIcon,
 } from "lucide-react";
 
@@ -32,6 +33,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { title: "Vendas", href: "/vendas", icon: ShoppingBag },
       { title: "Contatos", href: "/contatos", icon: Users },
+      { title: "Marketing", href: "/marketing", icon: Megaphone },
     ],
   },
   {

@@ -135,7 +135,12 @@ Até 2026-09-29 esta seção estava vazia de propósito (nada além das seções
 - **ID de conta de anúncios (`act_…`)**: fica opcional, só necessário se a marca começar a anunciar.
 - **Prioridade**: Média (não bloqueia nada existente).
 
-### T5.3 — Camada de dados + tela "Marketing" no ERP (combina GA4 + Instagram) — bloqueada até T5.1 e T5.2 estarem prontas
+### T5.3 — Camada de dados + tela "Marketing" no ERP (combina GA4 + Instagram) — ✅ CONCLUÍDA (2026-10-14)
+
+> **Como foi feito** (pedido explícito do usuário, seguindo as recomendações do plano para as decisões em aberto): leitura **ao vivo** das duas APIs numa rota do servidor (`/api/marketing`, exige sessão; chaves nunca chegam ao navegador) em vez da tabela diária proposta abaixo — sem migration 0005, os sistemas de origem já guardam o histórico. Instagram só métricas de **conta**; funil GA4 **ao lado** das vendas do ERP, sem reconciliação por pedido. Tela `/marketing` (7 ou 30 dias). Testado com dados reais: GA4 58 sessões/37 usuários (30d), funil sem `purchase`; Instagram alcance 5.844, 117 seguidores. **Para produção**: cadastrar as 6 variáveis `GA4_*`/`INSTAGRAM_*` no ambiente Production da Vercel (hoje só existem no `.env.local`). O token do Instagram expira (~60 dias para token de longa duração) — a tela mostra "credencial pode ter expirado" quando isso acontecer.
+> Achados para o usuário: (1) GA4 sem nenhum `purchase` em 30 dias, apesar de vendas — provável evento de compra não configurado na Nuvemshop; (2) `profile_links_taps` = 0 — conferir link da loja na bio; (3) conta já tem 117 seguidores, então demografia de seguidores (exige 100+) pode entrar numa próxima versão.
+
+_Plano original (mantido para referência):_
 - **Objetivo**: uma única tela "Marketing" no ERP com os números das duas fontes, e as métricas derivadas que fazem sentido sem anúncios pagos (ex.: tráfego/engajamento orgânico vs. vendas — CAC e ROAS deixam de fazer sentido sozinhos sem gasto de mídia; reavaliar quais métricas derivadas cabem quando chegar aqui).
 - **Subtarefas**:
   - [ ] **T5.3.a — Camada de dados**: nova migration (0005 — a 0004 é a do estoque, T5.5) com tabela de métricas diárias por fonte (ex.: `marketing_daily_metrics`), `user_id` + RLS igual às demais tabelas; sincronização idempotente (upsert por dia) para não duplicar em re-execuções.
