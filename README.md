@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ERP Lab in the Bush
 
-## Getting Started
+ERP interno da marca: financeiro (caixa, resultado/DRE, fluxo de caixa, capital do proprietário, planejamento), vendas, produtos, estoque por tamanho e cor, contatos, tarefas, canvas, marketing (GA4 + Instagram), relatórios e dashboard. Uso individual, desktop-first, em português.
 
-First, run the development server:
+Stack: Next.js 16 (App Router, `src/proxy.ts`), React 19, TypeScript, Tailwind 4 + shadcn/ui, Supabase (Auth, Postgres com RLS, Storage), Vitest, Vercel.
+
+## Rodar localmente
+
+Requisitos: Node.js 20.9+ e acesso ao projeto Supabase de **DEV**.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.local.example .env.local   # preencher com as chaves do Supabase DEV — nunca de produção
+npm ci
+npm run dev -- -p 3470
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Login com a conta de teste do Supabase DEV. O selo laranja "DEV — dados de teste" no cabeçalho confirma que não é produção.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+O Supabase DEV está no plano gratuito e pausa após alguns dias sem uso: se o app não conectar, reative o projeto no dashboard do Supabase.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Comandos
 
-## Learn More
+| Comando | O que faz |
+|---|---|
+| `npm test` | testes unitários (Vitest) |
+| `npm run lint` | ESLint |
+| `npm run build` | build de produção |
+| `npm run seed:dev -- <email>` | popula o Supabase DEV com dados de exemplo (nunca apontar para produção) |
 
-To learn more about Next.js, take a look at the following resources:
+## Documentação do projeto
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `CLAUDE.md` — regras do projeto (DEV → testes → revisão → aprovação → PROD).
+- `ENVIRONMENTS.md` — DEV × PROD, branches e deploy.
+- `todo.md` — backlog oficial; `progress.md` — histórico e estado atual.
+- `loop.md` + `.claude/agents/` — protocolo developer/tester.
+- `supabase/migrations/` — aplicadas manualmente no SQL Editor, primeiro no DEV, depois em PROD com aprovação.
+- `DESIGN.md` — design system; `CONTEXTO_MARCA.md` — contexto da marca.
+- `PLANO_MENSURACAO_MARKETING.md`, `PLANO_MARKETING_ATRIBUICAO.md` — módulo de Marketing.
+- `00_MASTER_CONTEXT.md` a `06_PHASE_6_*.md` — planejamento original (histórico).

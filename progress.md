@@ -78,75 +78,31 @@ _**T5.5** (commit `2fbab94`): estoque por tamanho e cor. Razão de movimentaçõ
 
 _Décima sexta atualização, 2026-10-14 — `dev` e `feature/pedidos-estoque` publicadas no GitHub (Dinossaurkillerjr virou colaborador do repo; `credential.useHttpPath=true` local). Projeto Supabase DEV estava **pausado** (free tier): reativado. Migration **0004 aplicada no DEV** (0001–0003 já estavam). Conta de teste DEV criada pelo usuário. **T3.1 + T5.4 + T5.5 validados de ponta a ponta no DEV, pela UI:** produto com tamanhos/cores; venda pendente → "A receber" → marcada paga → caixa; entrada de 10 (M·Preto); venda de 3 → saldo 7 com saída "Venda" no histórico; exclusão da venda → saldo volta a 10; venda anterior ao controle não baixou estoque; sem erros de console. Corrigido: aviso de falta de estoque aparecia antes de escolher tamanho/cor. Menu lateral agrupado (T5.6 parte 1). Produção **não** tocada._
 
-## Current phase
+_Décima sétima atualização, 2026-10-29 — **ambiente local reconstruído em outra máquina** (o repositório está no drive externo `G:`, antes `D:`). Instalado Node.js 26.13 (LTS) e liberado o `safe.directory` do git; `npm ci`. `npm test` **456/456** (47 arquivos), `npm run lint` limpo, `npm run build` ok (21 rotas). App sobe em `localhost:3470` e `/login` responde 200. Correções: `.mcp.json` apontava o MCP do Supabase para **produção** — agora aponta para o DEV (`wyhrsizevngjqbbynkou`); `vitest.config.ts` → `vitest.config.mts` com `import.meta.dirname` (some o aviso ESM/CommonJS); README real; token do Instagram conferido via `debug_token`: é de **System User e não expira** (os docs diziam ~60 dias). Achados que dependem do usuário: (1) o Supabase DEV **não resolve no DNS** — projeto pausado de novo (free tier), precisa reativar no dashboard antes de logar; (2) as variáveis `GA4_*` **não estão** no `.env.local` desta máquina nem em nenhum arquivo local — a parte de GA4 da tela Marketing não carrega até serem recolocadas; (3) `main`, `dev` e `feature/pedidos-estoque` estavam no mesmo commit (`1fddab9`) no GitHub — o código que depende das migrations 0003–0005 já está em `main`; não foi possível confirmar se elas foram aplicadas em produção (checagem somente leitura em PROD não autorizada nesta sessão); (4) `.claude/skills/` eram junctions do Windows apontando para `D:\...` — quebradas com a troca de letra do drive; os arquivos reais continuam em `.agents/skills/`. Produção **não** tocada._
 
-Pós-Fase 6 (deploy já aprovado e feito em produção) — expansão pós-deploy: Integração com IA + Vendas multi-produto, desenvolvidas na branch `dev`, aguardando ambiente de DEV utilizável antes de qualquer teste real ou promoção para `main`.
+## Estado atual (2026-10-29)
 
-## Current objective
+**Fase**: pós-deploy. Tudo o que estava em `dev` (vendas multi-produto, pagamento pago/pendente, estoque por tamanho e cor, Marketing com campanhas, IA via MCP) está também em `main`/`origin/main` desde 2026-10-14.
 
-Destravar o ambiente DEV (repositório remoto sincronizado + Supabase de DEV) e então validar de verdade (contra banco real) o que hoje só tem teste de lógica em memória: Vendas multi-produto e a integração com IA.
+**Em produção (código em `main`)**: Dashboard, Financeiro (+ planejamento, recorrência, parcelamento, fechamento), Produtos, Vendas multi-produto com taxa Nuvemshop e pagamento, Estoque, Contatos, Tarefas, Canvas, Relatórios, Marketing (GA4 + Instagram + campanhas), Configurações, Backup, PWA, IA via MCP. Deploy: https://labinthebush-erp-5kgm.vercel.app
 
-## Completed (em produção / `main`)
+**Migrations**: DEV tem 0001–0004 confirmadas (2026-10-14); 0005 provavelmente aplicada (etapa 1 de Marketing foi implementada contra o DEV), não reconferida — o DEV está pausado. PROD: 0001+0002 confirmadas em 2026-09-24; 0003, 0004 e 0005 **sem confirmação registrada** — conferir antes de qualquer outra coisa.
 
-- [x] Dashboard
-- [x] Financeiro (transações, categorias, parcelamento, recorrência, fechamento mensal, histórico de edição)
-- [x] Produtos (catálogo, custo, simulação de margem)
-- [x] Vendas (versão de um produto por venda, cupom único, frete)
-- [x] Contatos (CRM + pipeline)
-- [x] Tarefas (kanban/lista, filtros, notificações)
-- [x] Canvas (Supabase Storage)
-- [x] Configurações
-- [x] Relatórios (financeiro, produtos, vendas, contatos)
-- [x] Planejamento (aportes/reservas, orçamento por categoria)
-- [x] Backup (export JSON)
-- [x] Autenticação (Supabase Auth) + RLS
-- [x] Deploy em produção (Vercel) — https://labinthebush-erp-5kgm.vercel.app
-
-## In progress (só em `dev`, não mesclado)
-
-- [ ] Vendas: múltiplos produtos por venda, descontos acumulativos, taxa Nuvemshop — código completo e testado (lógica pura), mas a migration 0003 (`sale_items`) nunca foi aplicada em nenhum banco. **Sem nenhuma verificação contra um banco real ainda.**
-- [ ] Integração com IA via MCP (`/api/mcp`) — consulta + propose/confirm de lançamento. Migration 0002 já aplicada em produção (tabelas existem, código não). **Nunca testada ponta-a-ponta com uma chave de API real.**
-- [ ] Estrutura DEV/PROD (branches, selo de ambiente, `ENVIRONMENTS.md`) — pronta em `dev`, mas o Supabase de DEV combinado ainda não foi criado.
-
-## Known bugs
-
-Nenhum bug de cálculo/lógica encontrado. Riscos operacionais reais:
-
-- [ ] `dev` nunca foi enviada ao GitHub (sem upstream) — 4 commits só existem localmente, sem backup remoto.
-- [ ] `main` local está 1 commit à frente de `origin/main` (correção de env var já publicada via Vercel CLI, nunca enviada ao Git).
-- [ ] `.env.local` ainda aponta para o Supabase de **produção** — não há Supabase de DEV configurado.
-- [ ] `lib/ai/keys.ts`, `lib/ai/proposals.ts`, `lib/ai/tools/*` (autenticação por chave + escrita de lançamento financeiro) sem nenhum teste — maior risco, menor cobertura do projeto.
-- [ ] Nenhum repository.ts (de nenhum módulo) tem teste próprio — a lógica de compatibilidade legada (`legacyRowToItems`/`legacyRowToDiscounts`) está sem cobertura.
-- [ ] `README.md` é o boilerplate padrão do `create-next-app`, não descreve o projeto real.
-
-## Pending
-
-- [ ] Criar o projeto Supabase de DEV e aplicar as migrations 0001–0003 nele.
-- [ ] Enviar `dev` para o GitHub; sincronizar `main` com `origin/main`.
-- [ ] Verificar/ajustar as environment variables do ambiente Preview da Vercel para nunca apontarem para o Supabase de produção.
-- [ ] Testar Vendas multi-produto e a integração de IA contra o Supabase de DEV.
-- [ ] Adicionar testes para `lib/ai/keys.ts`/`proposals.ts`/`tools/*` e ao menos um teste de repository.
-- [ ] Só depois disso: aprovação explícita → merge `dev` → `main` → deploy.
+**Pendências que dependem do usuário**:
+- [ ] Confirmar/aplicar 0003 → 0004 → 0005 no SQL Editor de produção (aprovação explícita).
+- [ ] Reativar o Supabase DEV (pausado).
+- [ ] Recolocar `GA4_SERVICE_ACCOUNT_EMAIL`/`GA4_SERVICE_ACCOUNT_PRIVATE_KEY`/`GA4_PROPERTY_ID` no `.env.local` e cadastrar `GA4_*`/`INSTAGRAM_*` na Vercel (T1.3).
+- [ ] Conferir as env vars do ambiente Preview da Vercel (T1.3).
+- [ ] RLS ao vivo no DEV com dois usuários (T2.3).
+- [ ] Evento `purchase` do GA4 na Nuvemshop (T5.1.b).
+- [ ] Validar a etapa 1 de Marketing (campanhas) no DEV.
 
 ## Tests
 
-Unit (lógica pura — cálculos, reducers, mapeamento de categorias/heurísticas + autenticação por API key e fluxo propose/confirm/cancel da integração com IA):
-PASS — 303/303 (35 arquivos), `tsc` limpo, `eslint` limpo, `next build` ok.
-
-Integration (repository.ts contra banco real ou mockado):
-`lib/sales/repository.ts` tem teste desde T2.4 (fake multi-tabela `sales`+`sale_items`) — primeiro repository de domínio do projeto com cobertura. Os demais repositories continuam sem teste próprio.
-
-E2E:
-NÃO EXISTE — nenhuma ferramenta (Playwright/Cypress) configurada.
-
-## Last changes
-
-- `4c07f45` Migration 0003: sale_items relacional em vez de items jsonb (branch `dev`)
-- `c48a1d4` Estrutura DEV/PROD: branch dev, selo de ambiente, .env.local.example versionado
-- `58aa13e` Vendas: múltiplos produtos por venda, descontos acumulativos e taxa Nuvemshop
-- `dfb4dac` Integração com IA (ChatGPT/Claude) via MCP — consulta + lançamento com confirmação
-- `2beb893` (main, produção) Corrige env vars ausentes no bundle do cliente em produção
+Unit: PASS — 456/456 (47 arquivos), `tsc` limpo, `eslint` limpo, `next build` ok.
+Integration: `lib/sales/repository.ts` e `lib/stock/repository.ts` com fakes; demais repositories sem teste próprio.
+E2E: não existe.
 
 ## Next action
 
-Ver `todo.md` — a ordem recomendada começa por destravar o ambiente (push de `dev`, sync de `main`, criação do Supabase de DEV) antes de qualquer novo código.
+Ver `todo.md`. Primeiro: confirmar as migrations em produção e reativar o Supabase DEV.

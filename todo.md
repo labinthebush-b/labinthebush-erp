@@ -138,7 +138,7 @@ Até 2026-09-29 esta seção estava vazia de propósito (nada além das seções
 
 ### T5.3 — Camada de dados + tela "Marketing" no ERP (combina GA4 + Instagram) — ✅ CONCLUÍDA (2026-10-14)
 
-> **Como foi feito** (pedido explícito do usuário, seguindo as recomendações do plano para as decisões em aberto): leitura **ao vivo** das duas APIs numa rota do servidor (`/api/marketing`, exige sessão; chaves nunca chegam ao navegador) em vez da tabela diária proposta abaixo — sem migration 0005, os sistemas de origem já guardam o histórico. Instagram só métricas de **conta**; funil GA4 **ao lado** das vendas do ERP, sem reconciliação por pedido. Tela `/marketing` (7 ou 30 dias). Testado com dados reais: GA4 58 sessões/37 usuários (30d), funil sem `purchase`; Instagram alcance 5.844, 117 seguidores. **Para produção**: cadastrar as 6 variáveis `GA4_*`/`INSTAGRAM_*` no ambiente Production da Vercel (hoje só existem no `.env.local`). O token do Instagram expira (~60 dias para token de longa duração) — a tela mostra "credencial pode ter expirado" quando isso acontecer.
+> **Como foi feito** (pedido explícito do usuário, seguindo as recomendações do plano para as decisões em aberto): leitura **ao vivo** das duas APIs numa rota do servidor (`/api/marketing`, exige sessão; chaves nunca chegam ao navegador) em vez da tabela diária proposta abaixo — sem migration 0005, os sistemas de origem já guardam o histórico. Instagram só métricas de **conta**; funil GA4 **ao lado** das vendas do ERP, sem reconciliação por pedido. Tela `/marketing` (7 ou 30 dias). Testado com dados reais: GA4 58 sessões/37 usuários (30d), funil sem `purchase`; Instagram alcance 5.844, 117 seguidores. **Para produção**: cadastrar as 6 variáveis `GA4_*`/`INSTAGRAM_*` no ambiente Production da Vercel (hoje só existem no `.env.local`). O token do Instagram é de System User e **não expira** (conferido via `debug_token` em 2026-10-29); se for revogado, a tela mostra "credencial pode ter expirado".
 > Achados para o usuário: (1) GA4 sem nenhum `purchase` em 30 dias, apesar de vendas — provável evento de compra não configurado na Nuvemshop; (2) `profile_links_taps` = 0 — conferir link da loja na bio; (3) conta já tem 117 seguidores, então demografia de seguidores (exige 100+) pode entrar numa próxima versão.
 
 _Plano original (mantido para referência):_
@@ -184,9 +184,9 @@ _Plano original (mantido para referência):_
 
 Ideias e observações já registradas em auditorias anteriores ou explicitamente adiadas pelo próprio usuário — nenhuma delas deve ser iniciada sem pedido explícito.
 
-- **README.md** ainda é o boilerplate padrão do `create-next-app` — não descreve o projeto real. Baixa prioridade, não bloqueia nada.
+- ~~**README.md** boilerplate~~ — resolvido em 2026-10-29.
 - **Docs `00_PHASE_1` a `06_PHASE_6`** são o planejamento pré-deploy, hoje só históricos — poderiam ser marcados como arquivados para não confundir com `progress.md`/`todo.md` (fonte de verdade atual). Baixa prioridade.
-- **Aviso do `vitest.config.ts`** sobre ESM/CommonJS no carregamento de config — cosmético, não afeta os testes. Baixa prioridade.
+- ~~**Aviso do `vitest.config.ts`**~~ — resolvido em 2026-10-29 (`vitest.config.mts` + `import.meta.dirname`).
 - **OAuth para a integração com IA** (em vez de chave de API estática) — explicitamente definido como "Fase 1" na especificação original da integração com IA; melhoria de fase futura, não pedida ainda.
 - **Lançamentos parcelados/recorrentes via IA** — a integração com IA hoje só propõe lançamentos avulsos; parcelamento/recorrência via IA foi explicitamente definido como fora do escopo da primeira fase.
 - **FK de posse de produto e atomicidade de `upsertSales`** (ver seção 4) — só revisitar se o contexto de uso mudar (múltiplos usuários, API externa aceitando IDs de fora).
