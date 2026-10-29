@@ -24,7 +24,8 @@ Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclus
 - **Dependências**: nenhuma — só depende de o usuário existir no DEV (Authentication → Users → Add user) e de rodar o comando.
 - **Prioridade**: Alta (bloqueia validação manual das duas funcionalidades pendentes).
 
-### T1.3 — Verificar environment variables do ambiente Preview na Vercel
+### T1.3 — Verificar environment variables do ambiente Preview na Vercel — ✅ VERIFICADA (2026-10-29)
+> Preview não tem nenhuma variável — não alcança a produção. Em Production faltava `GA4_PROPERTY_ID` (adicionada, aguarda redeploy) e falta `SUPABASE_SERVICE_ROLE_KEY` (necessária para `/api/mcp`). Ver `progress.md`, "Estado atual".
 - **Objetivo**: garantir que um deploy de Preview (disparado por um push em `dev`, uma vez que T1.1 for feita) nunca acesse o Supabase de produção.
 - **Contexto**: nunca verificado — as env vars da Vercel foram configuradas em uma sessão anterior, possivelmente sem diferenciar Production de Preview.
 - **Critérios de conclusão**: confirmado no dashboard da Vercel (ou via `vercel env ls`) que `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY` do ambiente **Preview** apontam para o projeto DEV (`wyhrsizevngjqbbynkou`), nunca para produção.
@@ -54,7 +55,8 @@ Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclus
 - **Dependências**: nenhuma.
 - **Prioridade**: Alta.
 
-### T2.3 — Verificar RLS/policies ao vivo no Supabase DEV
+### T2.3 — Verificar RLS/policies ao vivo no Supabase DEV — parcial (2026-10-29)
+> Acesso anônimo confirmado bloqueado (0 linhas em todas as tabelas com dados). Falta o teste com dois usuários logados.
 - **Objetivo**: confirmar, com um teste real (não só leitura de schema), que as policies aplicadas pelas migrations 0001–0003 realmente isolam dados por usuário no projeto DEV.
 - **Contexto**: a validação de schema já confirmada (ver `progress.md`) comparou apenas estrutura de tabelas/colunas — não conseguiu confirmar RLS via leitura pura, porque isso exige inserir uma linha e comparar visibilidade entre duas sessões. O texto da migration é idêntico ao já validado com um usuário de teste descartável em produção, mas isso nunca foi reconfirmado ao vivo neste projeto DEV especificamente.
 - **Critérios de conclusão**: criar um usuário de teste descartável, inserir uma linha como esse usuário, confirmar que uma segunda sessão/usuário não a enxerga, confirmar que o próprio usuário a enxerga, depois apagar o usuário de teste (o cascade já limpa os dados). Resultado documentado em `progress.md`.

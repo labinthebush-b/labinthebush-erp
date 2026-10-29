@@ -86,14 +86,20 @@ _Décima sétima atualização, 2026-10-29 — **ambiente local reconstruído em
 
 **Em produção (código em `main`)**: Dashboard, Financeiro (+ planejamento, recorrência, parcelamento, fechamento), Produtos, Vendas multi-produto com taxa Nuvemshop e pagamento, Estoque, Contatos, Tarefas, Canvas, Relatórios, Marketing (GA4 + Instagram + campanhas), Configurações, Backup, PWA, IA via MCP. Deploy: https://labinthebush-erp-5kgm.vercel.app
 
-**Migrations**: DEV tem 0001–0004 confirmadas (2026-10-14); 0005 provavelmente aplicada (etapa 1 de Marketing foi implementada contra o DEV), não reconferida — o DEV está pausado. PROD: 0001+0002 confirmadas em 2026-09-24; 0003, 0004 e 0005 **sem confirmação registrada** — conferir antes de qualquer outra coisa.
+**Migrations** (conferido em 2026-10-29 pelo painel/API): DEV e PROD têm as tabelas de 0001–0005 (`sale_items`, `stock_movements`, `campaigns`, `instagram_posts` presentes nos dois).
+
+**Supabase**: DEV **e PROD** estavam pausados (free tier) em 2026-10-29 — o ERP publicado estava fora do ar. Os dois foram reativados (PROD com aprovação do usuário); o site de produção voltou a responder (`/login` 200). O plano gratuito pausa de novo após ~7 dias sem uso.
+
+**Vercel** (projeto `labinthebush-erp-5kgm`, conferido em 2026-10-29): Production tinha `NEXT_PUBLIC_SUPABASE_*`, `GA4_SERVICE_ACCOUNT_*`, `GA4_PROJECT_ID`, `INSTAGRAM_*` — faltava `GA4_PROPERTY_ID` (o código exige; GA4 quebrado em produção): **adicionada** (`556768654`, tipo Config), aguardando redeploy. Falta `SUPABASE_SERVICE_ROLE_KEY` em Production — sem ela `/api/mcp` (IA) não autentica chaves em produção. Preview não tem nenhuma variável: um deploy de Preview não alcança a produção (critério da T1.3 atendido), mas também não funciona. Existe um segundo projeto `labinthebush-erp` ligado ao mesmo repositório, sem variáveis — duplicado.
+
+**RLS (parcial, T2.3)**: no DEV, a chave anônima vê 0 linhas em todas as tabelas enquanto a service_role vê os dados — acesso sem login está bloqueado. Isolamento entre dois usuários logados continua não testado ao vivo.
 
 **Pendências que dependem do usuário**:
-- [ ] Confirmar/aplicar 0003 → 0004 → 0005 no SQL Editor de produção (aprovação explícita).
-- [ ] Reativar o Supabase DEV (pausado).
-- [ ] Recolocar `GA4_SERVICE_ACCOUNT_EMAIL`/`GA4_SERVICE_ACCOUNT_PRIVATE_KEY`/`GA4_PROPERTY_ID` no `.env.local` e cadastrar `GA4_*`/`INSTAGRAM_*` na Vercel (T1.3).
-- [ ] Conferir as env vars do ambiente Preview da Vercel (T1.3).
-- [ ] RLS ao vivo no DEV com dois usuários (T2.3).
+- [ ] Redeploy da produção na Vercel (para `GA4_PROPERTY_ID` valer).
+- [ ] Cadastrar `SUPABASE_SERVICE_ROLE_KEY` (de produção) em Production na Vercel e redeploy.
+- [ ] Decidir o que fazer com o projeto duplicado `labinthebush-erp` na Vercel.
+- [ ] Recolocar `GA4_SERVICE_ACCOUNT_EMAIL`/`GA4_SERVICE_ACCOUNT_PRIVATE_KEY`/`GA4_PROPERTY_ID` no `.env.local` (na Vercel são secretas, não dá para ler).
+- [ ] RLS entre dois usuários no DEV (T2.3).
 - [ ] Evento `purchase` do GA4 na Nuvemshop (T5.1.b).
 - [ ] Validar a etapa 1 de Marketing (campanhas) no DEV.
 
@@ -105,4 +111,4 @@ E2E: não existe.
 
 ## Next action
 
-Ver `todo.md`. Primeiro: confirmar as migrations em produção e reativar o Supabase DEV.
+Ver `todo.md`. Primeiro: redeploy da produção e `SUPABASE_SERVICE_ROLE_KEY` na Vercel.
