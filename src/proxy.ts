@@ -1,10 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabaseAnonKey, getSupabaseUrl } from "@/lib/supabase/env";
+import { isLoginRoute, isPublicRoute } from "@/lib/auth/public-routes";
 
-// Redirects an unauthenticated visitor to /login on every route except /login
-// itself, and keeps the Supabase auth cookie fresh on every request — the
-// standard @supabase/ssr proxy (formerly "middleware", renamed in Next.js 16)
+// Redirects an unauthenticated visitor to /login on every route except the
+// public ones (/login and the password-recovery pages — see
+// src/lib/auth/public-routes.ts), and keeps the Supabase auth cookie fresh on
+// every request — the standard @supabase/ssr proxy (formerly "middleware", renamed in Next.js 16)
 // pattern for the Next.js App Router.
 export async function proxy(request: NextRequest) {
   // /api/mcp authenticates itself ("Authorization: Bearer <api key>" — see
@@ -45,15 +47,15 @@ export async function proxy(request: NextRequest) {
 
   if (isApiRoute) return response;
 
-  const isLoginRoute = request.nextUrl.pathname.startsWith("/login");
+  const { pathname } = request.nextUrl;
 
-  if (!user && !isLoginRoute) {
+  if (!user && !isPublicRoute(pathname)) {
     const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = "/login";
     return NextResponse.redirect(loginUrl);
   }
 
-  if (user && isLoginRoute) {
+  if (user && isLoginRoute(pathname)) {
     const homeUrl = request.nextUrl.clone();
     homeUrl.pathname = "/";
     return NextResponse.redirect(homeUrl);

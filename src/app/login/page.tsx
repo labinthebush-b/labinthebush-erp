@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { signInAction, type SignInState } from "./actions";
 import { Input } from "@/components/ui/input";
@@ -31,6 +32,12 @@ export default function LoginPage() {
             <Button type="submit" disabled={pending} className="w-full">
               {pending ? "Entrando..." : "Entrar"}
             </Button>
+            <Link
+              href="/esqueci-senha"
+              className="text-center text-caption text-muted-foreground underline underline-offset-4"
+            >
+              Esqueci a senha
+            </Link>
           </form>
         </CardContent>
       </Card>
