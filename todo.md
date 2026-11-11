@@ -193,7 +193,8 @@ _Plano original (mantido para referência):_
 - **Objetivo**: promover `dev` → `main` (Etapa 1) e depois `feature/pedidos-estoque` → `dev` → `main` (Etapa 2), cada uma com a(s) migration(s) aplicada(s) **por você** no SQL Editor de produção, na ordem 0003 → 0004.
 - **Dependências**: T3.1 validada no DEV; aprovação explícita; push no GitHub liberado (T1.1). **Prioridade**: Alta.
 
-### T5.8 — Publicação da Etapa 3 (conta compartilhada, log de atividades, IA completa)
+### T5.8 — Publicação da Etapa 3 (conta compartilhada, log de atividades, IA completa) — ✅ PUBLICADA (2026-11-11)
+> 0006 → 0007 → 0008 aplicadas em PROD (`rzxtkwdbgvunosrhsuhc`) pelo navegador do usuário, com autorização dele; `dev` → `main` (`bc3164c`); produção conferida (login, Atividades, Financeiro com dados, keepalive 200, `/api/mcp` 401 para chave inválida).
 - **Objetivo**: levar `8546047` e `29beda8` da `dev` para produção.
 - **Passos**: (1) você aplica no SQL Editor de **PROD**, nessa ordem, `0006_shared_account.sql`, `0007_activity_log.sql`, `0008_activity_log_ai.sql`; (2) push da `dev` e merge `dev` → `main` (Vercel publica sozinha); (3) conferir `/login`, `/atividades`, `/api/keepalive` e `/api/mcp` em produção.
 - **Dependências**: autorização explícita (push e migrations de produção). **Prioridade**: Alta.

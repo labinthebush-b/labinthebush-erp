@@ -82,24 +82,25 @@ _Décima sétima atualização, 2026-10-29 — **ambiente local reconstruído em
 
 _Décima oitava atualização, 2026-11-11 — **IA (MCP) com conta compartilhada, edição/exclusão e log "pela IA"; Vercel conferida**. (1) Commit do trabalho que estava solto na `dev` (`8546047`: conta compartilhada 0006, log de atividades 0007, keepalive, perfil) e remoção dos atalhos quebrados `.claude/skills/supabase*`. (2) **Bug achado e corrigido**: um sócio usando a própria chave de IA via caixa R$ 0 — o `/api/mcp` filtrava pelo id do sócio, não da conta do dono. Agora `resolveAccountId` segue `account_members` (`29beda8`). (3) `propose_update_transaction` e `propose_delete_transaction` (propor → confirmar, preview antes/depois; recusam lançamento gerado por venda, mês fechado e lançamento alterado depois do preview). `propose_transaction` já aceitava `date` — agora a descrição diz à IA que é a data do gasto, a data é validada e mês fechado é recusado, como na tela. (4) Migration **0008** (`activity_log.via`): o gatilho registra o dono da chave como autor e o nome da chave como `via`; Atividades mostra "Fulano pela IA (Claude) adicionou …". O header `x-erp-ai-key-id` só é aceito em requisição da service role e a chave precisa ser da mesma conta. **0008 aplicada no DEV** (SQL Editor). (5) Teste real no DEV com dono/sócio/estranho temporários (apagados no fim): sócio vê a conta do dono, estranho vê R$ 0; gasto com data 2026-11-03 gravado nessa data na conta do dono; editar e excluir só depois de confirmar; estranho não edita lançamento alheio; log com 3 linhas (criou/editou/apagou) em nome do sócio e `via = "Claude do sócio"`. `scripts/verify-shared-account.ts` continua todo OK. (6) Vercel: `SUPABASE_SERVICE_ROLE_KEY` **já estava** em Production desde 29/10 e o deploy atual já a usa (`/api/mcp` em produção com chave inválida → 401, não 500) — **não precisa de redeploy** por ela nem pelo `GA4_PROPERTY_ID`. Projeto duplicado `labinthebush-erp` (sem variáveis, só o domínio padrão, nada no código apontando para ele) **excluído** com autorização do usuário. Produção **não** tocada (código nem banco)._
 
+_Décima nona atualização, mesmo dia — **Etapa 3 publicada em produção**, com autorização explícita do usuário (que pediu para eu mesmo fazer no navegador dele, sem ele mexer no Supabase). Projeto de produção identificado como `rzxtkwdbgvunosrhsuhc` ("Dinossaurkillerjr's Project" — o único além do DEV) e conferido antes por consulta só de leitura: tabelas 0001–0005 presentes, 24 lançamentos, 2 usuários, 0006–0008 ausentes. Aplicadas no SQL Editor de PROD, uma por vez, todas com "Success": **0006 → 0007 → 0008**. Conferência depois (só leitura): as três presentes, 7 gatilhos `log_activity`, policies `_own` usando `current_account_id()`, 24 lançamentos intactos. Depois: push da `dev` e fast-forward `dev` → `main` (`bc3164c`); a Vercel publicou em ~1 min. Produção: `/login` 200, `/esqueci-senha` 200, `/atividades` abre logado (vazia — o log começa agora), `/api/keepalive` 200 `{"ok":true}`, `/api/mcp` 401 para chave inválida, Financeiro logado mostra os dados normalmente._
+
 ## Estado atual (2026-11-11)
 
-**Fase**: pós-deploy + Etapa 3 (conta compartilhada, log de atividades, IA completa) pronta na `dev`, ainda **não publicada**.
+**Fase**: pós-deploy. Etapa 3 (conta compartilhada, log de atividades, IA completa) **publicada em 2026-11-11**; `dev` = `main`.
 
-**Em produção (código em `main`, `f889857`)**: Dashboard, Financeiro (+ planejamento, recorrência, parcelamento, fechamento), Produtos, Vendas multi-produto com taxa Nuvemshop e pagamento, Estoque, Contatos, Tarefas, Canvas, Relatórios, Marketing (GA4 + Instagram + campanhas), Configurações, Backup, PWA, IA via MCP (só criar lançamento/venda/tarefa/contato), recuperação de senha. Deploy: https://labinthebush-erp-5kgm.vercel.app
+**Em produção (código em `main`, `f889857`)**: Dashboard, Financeiro (+ planejamento, recorrência, parcelamento, fechamento), Produtos, Vendas multi-produto com taxa Nuvemshop e pagamento, Estoque, Contatos, Tarefas, Canvas, Relatórios, Marketing (GA4 + Instagram + campanhas), Configurações, Backup, PWA, IA via MCP (consultas; criar lançamento/venda/tarefa/contato; editar e excluir lançamento; conta compartilhada), recuperação de senha, conta compartilhada entre sócios, Atividades (log, com "pela IA"), perfil, keepalive diário do Supabase. Deploy: https://labinthebush-erp-5kgm.vercel.app
 
-**Só na `dev` (local, não enviada ao GitHub)**: `8546047` conta compartilhada + log de atividades + keepalive + perfil; `29beda8` IA com conta compartilhada, editar/excluir lançamento e log "pela IA".
+**Branches**: `dev` e `main` no mesmo commit no GitHub.
 
-**Migrations**: DEV tem 0001–0008. PROD tem 0001–0005; **0006, 0007 e 0008 precisam ser aplicadas em PROD, nessa ordem, por você, antes de publicar o código novo**.
+**Migrations**: DEV e PROD (`rzxtkwdbgvunosrhsuhc`) têm 0001–0008.
 
-**Supabase**: o plano gratuito pausa após ~7 dias sem uso; o cron `/api/keepalive` (em `vercel.json`) resolve isso depois de publicado.
+**Supabase**: o plano gratuito pausa após ~7 dias sem uso; o cron diário `/api/keepalive` (em `vercel.json`) está ativo em produção. O DEV não tem keepalive.
 
 **Vercel** (projeto `labinthebush-erp-5kgm`, conferido em 2026-11-11): Production tem `NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY`, `GA4_*`, `INSTAGRAM_*`, `NEXT_PUBLIC_APP_ENV`. IA em produção autentica. Preview continua sem variáveis (não alcança produção). Projeto duplicado removido.
 
 **RLS / conta compartilhada (T2.3)**: verificado ao vivo no DEV (dono, sócio e estranho logados) — e agora também pela IA.
 
 **Pendências que dependem do usuário**:
-- [ ] Autorizar publicar a `dev` (push + `dev` → `main`) e aplicar 0006 → 0007 → 0008 no SQL Editor de PROD.
 - [ ] Recolocar `GA4_SERVICE_ACCOUNT_EMAIL`/`GA4_SERVICE_ACCOUNT_PRIVATE_KEY`/`GA4_PROPERTY_ID` no `.env.local` (na Vercel são secretas, não dá para ler).
 - [ ] Evento `purchase` do GA4 na Nuvemshop (T5.1.b) — compra de teste no DebugView.
 - [ ] Responder as decisões do plano de mensuração (`PLANO_MENSURACAO_MARKETING.md`, seção 3).
@@ -113,4 +114,4 @@ E2E: não existe.
 
 ## Next action
 
-Publicação da Etapa 3 (T5.8 em `todo.md`) — depende da sua autorização.
+Ver `todo.md`: decisões do plano de mensuração (seção 3 de `PLANO_MENSURACAO_MARKETING.md`) e, se quiser, editar/excluir venda, tarefa e contato pela IA.
