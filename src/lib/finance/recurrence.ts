@@ -19,11 +19,19 @@ function yearMonth(isoDate: string): string {
  * and `horizonDate` (inclusive), skipping months that already have a
  * transaction linked to this rule so the history is never duplicated.
  */
+/**
+ * Same rule + same date = same id, so two logins (or two tabs) generating the
+ * same month at once write one transaction instead of a duplicate.
+ */
+export function recurrenceOccurrenceId(ruleId: string, date: string): string {
+  return `${ruleId.slice(0, -8)}${date.replaceAll("-", "")}`;
+}
+
 export function generateMissingOccurrences(
   rule: RecurringRule,
   existingTransactions: Transaction[],
   horizonDate: string,
-  makeId: () => string,
+  makeId: (date: string) => string,
   nowISO: string
 ): Transaction[] {
   if (!rule.active) return [];
@@ -48,7 +56,7 @@ export function generateMissingOccurrences(
 
     if (date <= horizonDate && !existingMonths.has(monthKey)) {
       generated.push({
-        id: makeId(),
+        id: makeId(date),
         type: rule.type,
         amount: rule.amount,
         date,

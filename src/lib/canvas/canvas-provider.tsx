@@ -73,7 +73,9 @@ export function CanvasProvider({ children }: { children: React.ReactNode }) {
     EMPTY_CANVAS_STATE,
     (hydratedState) => ({ type: "HYDRATE" as const, state: hydratedState }),
     fetchInitial,
-    sync
+    sync,
+    // Atualizar em segundo plano moveria elementos no meio de um arraste.
+    false
   );
   const { userId } = useSupabaseUser();
 

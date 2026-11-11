@@ -55,7 +55,8 @@ Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclus
 - **Dependências**: nenhuma.
 - **Prioridade**: Alta.
 
-### T2.3 — Verificar RLS/policies ao vivo no Supabase DEV — parcial (2026-10-29)
+### T2.3 — Verificar RLS/policies ao vivo no Supabase DEV — ✅ VERIFICADA (2026-11-04)
+> `scripts/verify-shared-account.ts`: dono, sócio e estranho logados de verdade no DEV.
 > Acesso anônimo confirmado bloqueado (0 linhas em todas as tabelas com dados). Falta o teste com dois usuários logados.
 - **Objetivo**: confirmar, com um teste real (não só leitura de schema), que as policies aplicadas pelas migrations 0001–0003 realmente isolam dados por usuário no projeto DEV.
 - **Contexto**: a validação de schema já confirmada (ver `progress.md`) comparou apenas estrutura de tabelas/colunas — não conseguiu confirmar RLS via leitura pura, porque isso exige inserir uma linha e comparar visibilidade entre duas sessões. O texto da migration é idêntico ao já validado com um usuário de teste descartável em produção, mas isso nunca foi reconfirmado ao vivo neste projeto DEV especificamente.
@@ -76,7 +77,8 @@ Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclus
 
 ## 3. Funcionalidades parcialmente implementadas que precisam de validação
 
-### T3.1 — Validar Vendas multi-produto contra o Supabase DEV
+### T3.1 — Validar Vendas multi-produto contra o Supabase DEV — ✅ VALIDADA (2026-11-04)
+> Pela tela local no DEV: criar, editar e excluir venda com 2 produtos, 2 descontos, frete e taxa Nuvemshop; `sale_items`, lançamentos e estoque conferidos no banco. Não exercitado: venda pendente pela tela.
 - **Objetivo**: primeira verificação real (não só lógica em memória) de múltiplos produtos por venda, descontos acumulativos e taxa Nuvemshop.
 - **Contexto**: código completo, 245 testes de lógica pura passando, schema já validado (T do diagnóstico anterior), mas nunca exercitado de ponta a ponta contra um banco de verdade — nem criação, nem edição, nem exclusão.
 - **Critérios de conclusão** (via UI local, apontando para o DEV): criar uma venda com 2+ produtos e conferir que `sale_items` recebe as linhas certas; editar quantidade/preço de um item e conferir recálculo; aplicar 2 descontos acumulados (ex.: percentual + valor fixo) e conferir o total; usar canal Nuvemshop com a taxa configurada em Configurações e conferir que a despesa de taxa aparece no Financeiro; excluir a venda e conferir que `sale_items` e as transações vinculadas (receita, frete, taxa) somem junto.

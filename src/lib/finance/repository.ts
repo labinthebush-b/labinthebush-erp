@@ -87,6 +87,14 @@ export async function fetchTransactions(
   return (data as TransactionRow[]).map(rowToTransaction);
 }
 
+/** Skips ids that already exist: never overwrites an occurrence another login generated and then edited. */
+export async function insertMissingTransactions(userId: string, transactions: Transaction[]): Promise<void> {
+  const { error } = await createClient()
+    .from("transactions")
+    .upsert(transactions.map((t) => transactionToRow(userId, t)), { ignoreDuplicates: true });
+  if (error) throw error;
+}
+
 export async function upsertTransactions(
   userId: string,
   transactions: Transaction[],

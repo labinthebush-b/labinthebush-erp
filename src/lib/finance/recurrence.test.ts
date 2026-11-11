@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateMissingOccurrences } from "./recurrence";
+import { generateMissingOccurrences, recurrenceOccurrenceId } from "./recurrence";
 import type { RecurringRule, Transaction } from "./types";
 
 const baseRule: RecurringRule = {
@@ -18,6 +18,20 @@ const baseRule: RecurringRule = {
 
 let idCounter = 0;
 const makeId = () => `gen-${++idCounter}`;
+
+describe("recurrenceOccurrenceId", () => {
+  const ruleId = "3f0e7900-7ae6-4ab6-b600-bbe8a86801ad";
+
+  it("é o mesmo para a mesma regra e data, em qualquer login", () => {
+    expect(recurrenceOccurrenceId(ruleId, "2026-11-05")).toBe(recurrenceOccurrenceId(ruleId, "2026-11-05"));
+  });
+
+  it("muda com a data e continua sendo um UUID válido", () => {
+    const id = recurrenceOccurrenceId(ruleId, "2026-11-05");
+    expect(id).not.toBe(recurrenceOccurrenceId(ruleId, "2026-12-05"));
+    expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+  });
+});
 
 describe("generateMissingOccurrences", () => {
   it("gera uma ocorrência por mês entre o início e o horizonte", () => {

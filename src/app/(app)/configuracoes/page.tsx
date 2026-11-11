@@ -14,6 +14,7 @@ import { DASHBOARD_WIDGETS } from "@/lib/settings/types";
 import type { PipelineStage } from "@/lib/contacts/pipeline";
 import { ExportBackupButton } from "@/components/settings/export-backup-button";
 import { AiIntegrationPanel } from "@/components/settings/ai-integration-panel";
+import { ProfilePanel } from "@/components/settings/profile-panel";
 
 let stageIdCounter = 0;
 function newStageId() {
@@ -63,6 +64,16 @@ export default function ConfiguracoesPage() {
         title="Configurações"
         description="Preferências gerais do ERP."
       />
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Seu perfil</CardTitle>
+          <CardDescription>Seu nome e sua foto aparecem nas Atividades.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ProfilePanel />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

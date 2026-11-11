@@ -10,6 +10,7 @@ import {
   BarChart3,
   Settings,
   Megaphone,
+  History,
   type LucideIcon,
 } from "lucide-react";
 
@@ -55,6 +56,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { title: "Tarefas", href: "/tarefas", icon: CheckSquare },
       { title: "Canvas", href: "/canvas", icon: PenTool },
+      { title: "Atividades", href: "/atividades", icon: History },
       { title: "Configurações", href: "/configuracoes", icon: Settings },
     ],
   },

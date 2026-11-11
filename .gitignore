@@ -48,3 +48,6 @@ next-env.d.ts
 
 # graphify: grafo local do codigo, recriado com `graphify update .`
 graphify-out/
+
+# Claude Code — permissões locais de cada máquina
+.claude/settings.local.json

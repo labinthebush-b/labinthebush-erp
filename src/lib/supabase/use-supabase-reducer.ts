@@ -4,6 +4,10 @@ import * as React from "react";
 import { toast } from "sonner";
 import { useSupabaseUser } from "./use-supabase-user";
 import { useReportDataLoading } from "./data-load-status";
+import { canApplyRefresh } from "./can-apply-refresh";
+
+/** How often an open, visible tab picks up what another login changed. */
+const REFRESH_INTERVAL_MS = 60_000;
 
 /**
  * Drop-in replacement for the old localStorage-backed `usePersistentReducer`:
@@ -14,15 +18,18 @@ import { useReportDataLoading } from "./data-load-status";
  * synchronously (`dispatch` never awaits a network round-trip) — `sync` runs
  * after the fact, comparing the previous and next state to persist only what
  * changed (see diffById). A failed sync surfaces a toast but never rolls back
- * the local state; this is a single-user, best-effort sync, not an
- * offline queue or conflict-resolution system.
+ * the local state; this is a best-effort sync, not an offline queue or
+ * conflict-resolution system: when two logins save the same record, the last
+ * save wins. What another login changed is picked up when the tab regains
+ * focus and once a minute while it is visible (see `autoRefresh`).
  */
 export function useSupabaseReducer<State, Action>(
   reducer: (state: State, action: Action) => State,
   emptyState: State,
   hydrateAction: (state: State) => Action,
   fetchInitial: (userId: string) => Promise<State>,
-  sync: (userId: string, previous: State, next: State) => Promise<void>
+  sync: (userId: string, previous: State, next: State) => Promise<void>,
+  autoRefresh = true
 ): [State, React.Dispatch<Action>, { loading: boolean }] {
   const { userId, loading: userLoading } = useSupabaseUser();
   const [state, dispatch] = React.useReducer(reducer, emptyState);
@@ -30,6 +37,7 @@ export function useSupabaseReducer<State, Action>(
 
   const hydratedForUserId = React.useRef<string | undefined>(undefined);
   const lastSyncedRef = React.useRef(emptyState);
+  const pendingSyncsRef = React.useRef(0);
 
   React.useEffect(() => {
     if (userLoading) return;
@@ -83,11 +91,48 @@ export function useSupabaseReducer<State, Action>(
 
     const previous = lastSyncedRef.current;
     lastSyncedRef.current = state;
-    sync(userId, previous, state).catch(() => {
-      toast.error("Não foi possível salvar sua última alteração. Verifique sua conexão.");
-    });
+    pendingSyncsRef.current += 1;
+    sync(userId, previous, state)
+      .catch(() => {
+        toast.error("Não foi possível salvar sua última alteração. Verifique sua conexão.");
+      })
+      .finally(() => {
+        pendingSyncsRef.current -= 1;
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, userId]);
+
+  React.useEffect(() => {
+    if (!autoRefresh || !userId) return;
+    let cancelled = false;
+
+    function refresh() {
+      if (!userId || document.visibilityState !== "visible") return;
+      if (hydratedForUserId.current !== userId || pendingSyncsRef.current > 0) return;
+      const syncedWhenFetchStarted = lastSyncedRef.current;
+      fetchInitial(userId)
+        .then((fetched) => {
+          if (cancelled) return;
+          const syncedNow = lastSyncedRef.current;
+          if (!canApplyRefresh({ syncedWhenFetchStarted, syncedNow, pendingSyncs: pendingSyncsRef.current })) return;
+          lastSyncedRef.current = fetched;
+          dispatch(hydrateAction(fetched));
+        })
+        // Sem aviso: é uma atualização de fundo, e a próxima tenta de novo.
+        .catch(() => {});
+    }
+
+    const interval = setInterval(refresh, REFRESH_INTERVAL_MS);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, autoRefresh]);
 
   const loading = userLoading || dataLoading;
   useReportDataLoading(loading);

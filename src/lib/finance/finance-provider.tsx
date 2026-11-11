@@ -10,13 +10,12 @@ import {
   type FinanceState,
 } from "./store-reducer";
 import { addMonthsToISODate } from "./calculations";
-import { generateMissingOccurrences } from "./recurrence";
+import { generateMissingOccurrences, recurrenceOccurrenceId } from "./recurrence";
 import {
   buildCustomCategory,
   buildInstallmentTransactions,
   buildRecurringRule,
   buildTransaction,
-  makeId,
   nowISO,
   todayISO,
   type NewInstallmentInput,
@@ -40,6 +39,7 @@ import {
   upsertInstallmentGroups,
   upsertMonthClosings,
   upsertRecurringRules,
+  insertMissingTransactions,
   upsertTransactions,
 } from "./repository";
 
@@ -63,10 +63,10 @@ async function fetchInitial(userId: string): Promise<FinanceState> {
 
   const horizon = addMonthsToISODate(todayISO(), RECURRENCE_HORIZON_MONTHS);
   const generated = recurringRules.flatMap((rule) =>
-    generateMissingOccurrences(rule, transactions, horizon, makeId, nowISO())
+    generateMissingOccurrences(rule, transactions, horizon, (date) => recurrenceOccurrenceId(rule.id, date), nowISO())
   );
   if (generated.length > 0) {
-    await upsertTransactions(userId, generated);
+    await insertMissingTransactions(userId, generated);
   }
 
   return {
@@ -181,7 +181,7 @@ export function FinanceProvider({ children }: { children: React.ReactNode }) {
       dispatch({ type: "ADD_RECURRING_RULE", rule });
 
       const horizon = addMonthsToISODate(todayISO(), RECURRENCE_HORIZON_MONTHS);
-      const generated = generateMissingOccurrences(rule, state.transactions, horizon, makeId, nowISO());
+      const generated = generateMissingOccurrences(rule, state.transactions, horizon, (date) => recurrenceOccurrenceId(rule.id, date), nowISO());
       if (generated.length > 0) {
         dispatch({ type: "ADD_TRANSACTIONS", transactions: generated });
       }
