@@ -80,35 +80,37 @@ _Décima sexta atualização, 2026-10-14 — `dev` e `feature/pedidos-estoque` p
 
 _Décima sétima atualização, 2026-10-29 — **ambiente local reconstruído em outra máquina** (o repositório está no drive externo `G:`, antes `D:`). Instalado Node.js 26.13 (LTS) e liberado o `safe.directory` do git; `npm ci`. `npm test` **456/456** (47 arquivos), `npm run lint` limpo, `npm run build` ok (21 rotas). App sobe em `localhost:3470` e `/login` responde 200. Correções: `.mcp.json` apontava o MCP do Supabase para **produção** — agora aponta para o DEV (`wyhrsizevngjqbbynkou`); `vitest.config.ts` → `vitest.config.mts` com `import.meta.dirname` (some o aviso ESM/CommonJS); README real; token do Instagram conferido via `debug_token`: é de **System User e não expira** (os docs diziam ~60 dias). Achados que dependem do usuário: (1) o Supabase DEV **não resolve no DNS** — projeto pausado de novo (free tier), precisa reativar no dashboard antes de logar; (2) as variáveis `GA4_*` **não estão** no `.env.local` desta máquina nem em nenhum arquivo local — a parte de GA4 da tela Marketing não carrega até serem recolocadas; (3) `main`, `dev` e `feature/pedidos-estoque` estavam no mesmo commit (`1fddab9`) no GitHub — o código que depende das migrations 0003–0005 já está em `main`; não foi possível confirmar se elas foram aplicadas em produção (checagem somente leitura em PROD não autorizada nesta sessão); (4) `.claude/skills/` eram junctions do Windows apontando para `D:\...` — quebradas com a troca de letra do drive; os arquivos reais continuam em `.agents/skills/`. Produção **não** tocada._
 
-## Estado atual (2026-10-29)
+_Décima oitava atualização, 2026-11-11 — **IA (MCP) com conta compartilhada, edição/exclusão e log "pela IA"; Vercel conferida**. (1) Commit do trabalho que estava solto na `dev` (`8546047`: conta compartilhada 0006, log de atividades 0007, keepalive, perfil) e remoção dos atalhos quebrados `.claude/skills/supabase*`. (2) **Bug achado e corrigido**: um sócio usando a própria chave de IA via caixa R$ 0 — o `/api/mcp` filtrava pelo id do sócio, não da conta do dono. Agora `resolveAccountId` segue `account_members` (`29beda8`). (3) `propose_update_transaction` e `propose_delete_transaction` (propor → confirmar, preview antes/depois; recusam lançamento gerado por venda, mês fechado e lançamento alterado depois do preview). `propose_transaction` já aceitava `date` — agora a descrição diz à IA que é a data do gasto, a data é validada e mês fechado é recusado, como na tela. (4) Migration **0008** (`activity_log.via`): o gatilho registra o dono da chave como autor e o nome da chave como `via`; Atividades mostra "Fulano pela IA (Claude) adicionou …". O header `x-erp-ai-key-id` só é aceito em requisição da service role e a chave precisa ser da mesma conta. **0008 aplicada no DEV** (SQL Editor). (5) Teste real no DEV com dono/sócio/estranho temporários (apagados no fim): sócio vê a conta do dono, estranho vê R$ 0; gasto com data 2026-11-03 gravado nessa data na conta do dono; editar e excluir só depois de confirmar; estranho não edita lançamento alheio; log com 3 linhas (criou/editou/apagou) em nome do sócio e `via = "Claude do sócio"`. `scripts/verify-shared-account.ts` continua todo OK. (6) Vercel: `SUPABASE_SERVICE_ROLE_KEY` **já estava** em Production desde 29/10 e o deploy atual já a usa (`/api/mcp` em produção com chave inválida → 401, não 500) — **não precisa de redeploy** por ela nem pelo `GA4_PROPERTY_ID`. Projeto duplicado `labinthebush-erp` (sem variáveis, só o domínio padrão, nada no código apontando para ele) **excluído** com autorização do usuário. Produção **não** tocada (código nem banco)._
 
-**Fase**: pós-deploy. Tudo o que estava em `dev` (vendas multi-produto, pagamento pago/pendente, estoque por tamanho e cor, Marketing com campanhas, IA via MCP) está também em `main`/`origin/main` desde 2026-10-14.
+## Estado atual (2026-11-11)
 
-**Em produção (código em `main`)**: Dashboard, Financeiro (+ planejamento, recorrência, parcelamento, fechamento), Produtos, Vendas multi-produto com taxa Nuvemshop e pagamento, Estoque, Contatos, Tarefas, Canvas, Relatórios, Marketing (GA4 + Instagram + campanhas), Configurações, Backup, PWA, IA via MCP. Deploy: https://labinthebush-erp-5kgm.vercel.app
+**Fase**: pós-deploy + Etapa 3 (conta compartilhada, log de atividades, IA completa) pronta na `dev`, ainda **não publicada**.
 
-**Migrations** (conferido em 2026-10-29 pelo painel/API): DEV e PROD têm as tabelas de 0001–0005 (`sale_items`, `stock_movements`, `campaigns`, `instagram_posts` presentes nos dois).
+**Em produção (código em `main`, `f889857`)**: Dashboard, Financeiro (+ planejamento, recorrência, parcelamento, fechamento), Produtos, Vendas multi-produto com taxa Nuvemshop e pagamento, Estoque, Contatos, Tarefas, Canvas, Relatórios, Marketing (GA4 + Instagram + campanhas), Configurações, Backup, PWA, IA via MCP (só criar lançamento/venda/tarefa/contato), recuperação de senha. Deploy: https://labinthebush-erp-5kgm.vercel.app
 
-**Supabase**: DEV **e PROD** estavam pausados (free tier) em 2026-10-29 — o ERP publicado estava fora do ar. Os dois foram reativados (PROD com aprovação do usuário); o site de produção voltou a responder (`/login` 200). O plano gratuito pausa de novo após ~7 dias sem uso.
+**Só na `dev` (local, não enviada ao GitHub)**: `8546047` conta compartilhada + log de atividades + keepalive + perfil; `29beda8` IA com conta compartilhada, editar/excluir lançamento e log "pela IA".
 
-**Vercel** (projeto `labinthebush-erp-5kgm`, conferido em 2026-10-29): Production tinha `NEXT_PUBLIC_SUPABASE_*`, `GA4_SERVICE_ACCOUNT_*`, `GA4_PROJECT_ID`, `INSTAGRAM_*` — faltava `GA4_PROPERTY_ID` (o código exige; GA4 quebrado em produção): **adicionada** (`556768654`, tipo Config), aguardando redeploy. Falta `SUPABASE_SERVICE_ROLE_KEY` em Production — sem ela `/api/mcp` (IA) não autentica chaves em produção. Preview não tem nenhuma variável: um deploy de Preview não alcança a produção (critério da T1.3 atendido), mas também não funciona. Existe um segundo projeto `labinthebush-erp` ligado ao mesmo repositório, sem variáveis — duplicado.
+**Migrations**: DEV tem 0001–0008. PROD tem 0001–0005; **0006, 0007 e 0008 precisam ser aplicadas em PROD, nessa ordem, por você, antes de publicar o código novo**.
 
-**RLS (parcial, T2.3)**: no DEV, a chave anônima vê 0 linhas em todas as tabelas enquanto a service_role vê os dados — acesso sem login está bloqueado. Isolamento entre dois usuários logados continua não testado ao vivo.
+**Supabase**: o plano gratuito pausa após ~7 dias sem uso; o cron `/api/keepalive` (em `vercel.json`) resolve isso depois de publicado.
+
+**Vercel** (projeto `labinthebush-erp-5kgm`, conferido em 2026-11-11): Production tem `NEXT_PUBLIC_SUPABASE_*`, `SUPABASE_SERVICE_ROLE_KEY`, `GA4_*`, `INSTAGRAM_*`, `NEXT_PUBLIC_APP_ENV`. IA em produção autentica. Preview continua sem variáveis (não alcança produção). Projeto duplicado removido.
+
+**RLS / conta compartilhada (T2.3)**: verificado ao vivo no DEV (dono, sócio e estranho logados) — e agora também pela IA.
 
 **Pendências que dependem do usuário**:
-- [ ] Redeploy da produção na Vercel (para `GA4_PROPERTY_ID` valer).
-- [ ] Cadastrar `SUPABASE_SERVICE_ROLE_KEY` (de produção) em Production na Vercel e redeploy.
-- [ ] Decidir o que fazer com o projeto duplicado `labinthebush-erp` na Vercel.
+- [ ] Autorizar publicar a `dev` (push + `dev` → `main`) e aplicar 0006 → 0007 → 0008 no SQL Editor de PROD.
 - [ ] Recolocar `GA4_SERVICE_ACCOUNT_EMAIL`/`GA4_SERVICE_ACCOUNT_PRIVATE_KEY`/`GA4_PROPERTY_ID` no `.env.local` (na Vercel são secretas, não dá para ler).
-- [ ] RLS entre dois usuários no DEV (T2.3).
-- [ ] Evento `purchase` do GA4 na Nuvemshop (T5.1.b).
+- [ ] Evento `purchase` do GA4 na Nuvemshop (T5.1.b) — compra de teste no DebugView.
+- [ ] Responder as decisões do plano de mensuração (`PLANO_MENSURACAO_MARKETING.md`, seção 3).
 - [ ] Validar a etapa 1 de Marketing (campanhas) no DEV.
 
 ## Tests
 
-Unit: PASS — 456/456 (47 arquivos), `tsc` limpo, `eslint` limpo, `next build` ok.
-Integration: `lib/sales/repository.ts` e `lib/stock/repository.ts` com fakes; demais repositories sem teste próprio.
+Unit: PASS — 531/531 (55 arquivos), `tsc` limpo, `eslint` limpo, `next build` ok.
+Integration: `lib/sales/repository.ts` e `lib/stock/repository.ts` com fakes; IA testada ao vivo no DEV (dono/sócio/estranho); `scripts/verify-shared-account.ts` para RLS/gatilhos.
 E2E: não existe.
 
 ## Next action
 
-Ver `todo.md`. Primeiro: redeploy da produção e `SUPABASE_SERVICE_ROLE_KEY` na Vercel.
+Publicação da Etapa 3 (T5.8 em `todo.md`) — depende da sua autorização.

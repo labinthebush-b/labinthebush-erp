@@ -24,8 +24,8 @@ Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclus
 - **Dependências**: nenhuma — só depende de o usuário existir no DEV (Authentication → Users → Add user) e de rodar o comando.
 - **Prioridade**: Alta (bloqueia validação manual das duas funcionalidades pendentes).
 
-### T1.3 — Verificar environment variables do ambiente Preview na Vercel — ✅ VERIFICADA (2026-10-29)
-> Preview não tem nenhuma variável — não alcança a produção. Em Production faltava `GA4_PROPERTY_ID` (adicionada, aguarda redeploy) e falta `SUPABASE_SERVICE_ROLE_KEY` (necessária para `/api/mcp`). Ver `progress.md`, "Estado atual".
+### T1.3 — Verificar environment variables do ambiente Preview na Vercel — ✅ VERIFICADA (2026-10-29, reconferida 2026-11-11)
+> Preview não tem nenhuma variável — não alcança a produção. Production tem todas, inclusive `GA4_PROPERTY_ID` e `SUPABASE_SERVICE_ROLE_KEY`; o deploy atual já as usa (`/api/mcp` em produção responde 401 a chave inválida). Projeto duplicado `labinthebush-erp` excluído em 2026-11-11.
 - **Objetivo**: garantir que um deploy de Preview (disparado por um push em `dev`, uma vez que T1.1 for feita) nunca acesse o Supabase de produção.
 - **Contexto**: nunca verificado — as env vars da Vercel foram configuradas em uma sessão anterior, possivelmente sem diferenciar Production de Preview.
 - **Critérios de conclusão**: confirmado no dashboard da Vercel (ou via `vercel env ls`) que `NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY` do ambiente **Preview** apontam para o projeto DEV (`wyhrsizevngjqbbynkou`), nunca para produção.
@@ -86,6 +86,7 @@ Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclus
 - **Prioridade**: Alta.
 
 ### T3.2 — Validar a integração com IA (MCP) ponta a ponta — ✅ VALIDADA NO DEV (2026-10-14)
+> **Revalidada em 2026-11-11** com 19 ferramentas + editar/excluir lançamento, conta compartilhada e log "pela IA" (ver T3.3).
 > Chave gerada pela UI (DEV), chamadas JSON-RPC reais a `/api/mcp`: initialize 200, 10 ferramentas listadas, sem chave 401; `get_caixa`/`get_vendas`/`get_produtos`/`get_contas_a_pagar_receber` batem com o banco; propose não grava (caixa inalterado), cancel descarta, confirmar cancelada e confirmar duas vezes são recusados, confirm grava (caixa 142 → 132). Chave revogada pela UI → 401. Observação: a lista de chaves mostrou "nunca usada" logo após o uso — conferir se `last_used_at` atualiza (pode ser só a lista sem recarregar). Ficou no DEV a despesa "TESTE MCP confirmado" (R$ 10).
 - **Objetivo**: primeira verificação real do fluxo consulta + propose/confirm de lançamento via `/api/mcp`.
 - **Contexto**: código completo (endpoint, chaves de API, ferramentas de consulta e de lançamento), migration aplicada, mas nunca testado com uma chave de API real gerada pela UI.
@@ -94,6 +95,16 @@ Convenção: cada tarefa tem objetivo, contexto, critérios objetivos de conclus
 - **Prioridade**: Alta.
 
 ---
+
+### T3.3 — IA (MCP): conta compartilhada, data do gasto, editar/excluir lançamento e log — ✅ CONCLUÍDA NO DEV (2026-11-11)
+> Pedido do usuário: mandar foto das anotações de gastos para o Claude e ele lançar na data certa, com descrição e categoria; poder editar e remover; aparecer no log como a conta dele, mas feito pela IA.
+- [x] Sócio usando a própria chave lê/grava a conta do dono (bug: via R$ 0).
+- [x] `date` do gasto documentada, validada e mês fechado recusado.
+- [x] `propose_update_transaction` / `propose_delete_transaction` com propor → confirmar.
+- [x] Migration 0008: `activity_log.via`; Atividades mostra "Fulano pela IA (Claude)". Aplicada no DEV.
+- [x] Testes unitários (531) + teste real no DEV com dono/sócio/estranho.
+- [ ] Editar/excluir **venda, tarefa e contato** pela IA — não pedido ainda; hoje a IA só cria esses.
+- [ ] Testar com uma foto real de anotações num cliente de IA (Claude) conectado ao DEV — depende de expor o DEV (Preview com variáveis do DEV ou túnel).
 
 ## 4. Bugs ou inconsistências
 
@@ -181,6 +192,11 @@ _Plano original (mantido para referência):_
 ### T5.7 — Publicação da Etapa 1 e da Etapa 2 em produção
 - **Objetivo**: promover `dev` → `main` (Etapa 1) e depois `feature/pedidos-estoque` → `dev` → `main` (Etapa 2), cada uma com a(s) migration(s) aplicada(s) **por você** no SQL Editor de produção, na ordem 0003 → 0004.
 - **Dependências**: T3.1 validada no DEV; aprovação explícita; push no GitHub liberado (T1.1). **Prioridade**: Alta.
+
+### T5.8 — Publicação da Etapa 3 (conta compartilhada, log de atividades, IA completa)
+- **Objetivo**: levar `8546047` e `29beda8` da `dev` para produção.
+- **Passos**: (1) você aplica no SQL Editor de **PROD**, nessa ordem, `0006_shared_account.sql`, `0007_activity_log.sql`, `0008_activity_log_ai.sql`; (2) push da `dev` e merge `dev` → `main` (Vercel publica sozinha); (3) conferir `/login`, `/atividades`, `/api/keepalive` e `/api/mcp` em produção.
+- **Dependências**: autorização explícita (push e migrations de produção). **Prioridade**: Alta.
 
 ---
 
