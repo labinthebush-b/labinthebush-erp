@@ -105,9 +105,23 @@ export async function upsertTransactions(
   if (error) throw error;
 }
 
-export async function deleteTransactionRows(userId: string, ids: string[]): Promise<void> {
+export async function fetchTransactionById(
+  userId: string,
+  id: string,
+  client: AnySupabaseClient = createClient()
+): Promise<Transaction | null> {
+  const { data, error } = await client.from("transactions").select("*").eq("user_id", userId).eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data ? rowToTransaction(data as TransactionRow) : null;
+}
+
+export async function deleteTransactionRows(
+  userId: string,
+  ids: string[],
+  client: AnySupabaseClient = createClient()
+): Promise<void> {
   if (ids.length === 0) return;
-  const { error } = await createClient().from("transactions").delete().eq("user_id", userId).in("id", ids);
+  const { error } = await client.from("transactions").delete().eq("user_id", userId).in("id", ids);
   if (error) throw error;
 }
 
@@ -285,8 +299,11 @@ type MonthClosingRow = {
   reopened_at: string | null;
 };
 
-export async function fetchMonthClosings(userId: string): Promise<MonthClosing[]> {
-  const { data, error } = await createClient().from("month_closings").select("*").eq("user_id", userId);
+export async function fetchMonthClosings(
+  userId: string,
+  client: AnySupabaseClient = createClient()
+): Promise<MonthClosing[]> {
+  const { data, error } = await client.from("month_closings").select("*").eq("user_id", userId);
   if (error) throw error;
   return (data as MonthClosingRow[]).map((row) => ({
     id: row.id,

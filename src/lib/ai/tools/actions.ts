@@ -7,7 +7,7 @@ import { z } from "zod";
 import type { AiRequestContext } from "../context";
 import { createProposal, getOwnProposal, isExpired, markProposalCancelled, markProposalConfirmed, type Proposal } from "../proposals";
 import { loadAiSettings } from "./queries";
-import { confirmTransaction } from "./transactions";
+import { confirmTransaction, isTransactionProposal } from "./transactions";
 import { fetchProducts } from "@/lib/catalog/repository";
 import { fetchContacts, upsertContacts } from "@/lib/contacts/repository";
 import { fetchStockMovements, upsertStockMovements } from "@/lib/stock/repository";
@@ -254,7 +254,7 @@ async function confirmContact(ctx: AiRequestContext, proposal: Proposal) {
 export async function confirmProposal(ctx: AiRequestContext, args: { proposalId: string }) {
   const proposal = await getOwnProposal(ctx.userId, args.proposalId, ctx.client);
   if (!proposal) throw new Error("Proposta não encontrada.");
-  if (proposal.kind === "transaction") return confirmTransaction(ctx, args);
+  if (isTransactionProposal(proposal.kind)) return confirmTransaction(ctx, args);
   if (proposal.status !== "pending") throw new Error(`Esta proposta já está com status "${proposal.status}" e não pode ser confirmada de novo.`);
   if (isExpired(proposal)) throw new Error("Esta proposta expirou. Peça para a IA gerar de novo.");
 

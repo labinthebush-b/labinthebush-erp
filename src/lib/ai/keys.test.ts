@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createApiKey, listApiKeys, resolveUserIdFromApiKey, revokeApiKey } from "./keys";
+import { createApiKey, listApiKeys, resolveAccountId, resolveUserIdFromApiKey, revokeApiKey } from "./keys";
 import type { AnySupabaseClient } from "@/lib/supabase/types";
 
 // ---------------------------------------------------------------------------
@@ -359,5 +359,36 @@ describe("revokeApiKey", () => {
   it("propaga o erro do banco", async () => {
     const db = createFakeDb({ failOn: "delete" });
     await expect(revokeApiKey(USER, "key-1", db.client)).rejects.toBeDefined();
+  });
+});
+
+describe("resolveAccountId", () => {
+  // Fake mínimo: só a consulta que resolveAccountId faz em account_members.
+  function membersClient(rows: { member_id: string; owner_id: string }[], error: unknown = null) {
+    const filters: Record<string, unknown> = {};
+    const builder = {
+      select: () => builder,
+      eq: (column: string, value: unknown) => {
+        filters[column] = value;
+        return builder;
+      },
+      maybeSingle: () =>
+        Promise.resolve({ data: error ? null : (rows.find((r) => r.member_id === filters.member_id) ?? null), error }),
+    };
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- fake de teste
+    return { from: () => builder } as any;
+  }
+
+  it("sócio usa a conta do dono", async () => {
+    expect(await resolveAccountId("socio", membersClient([{ member_id: "socio", owner_id: "dono" }]))).toBe("dono");
+  });
+
+  it("quem não é sócio de ninguém é dono de si mesmo", async () => {
+    expect(await resolveAccountId("dono", membersClient([{ member_id: "socio", owner_id: "dono" }]))).toBe("dono");
+    expect(await resolveAccountId("estranho", membersClient([]))).toBe("estranho");
+  });
+
+  it("erro no banco não vira acesso à conta errada", async () => {
+    await expect(resolveAccountId("socio", membersClient([], new Error("falhou")))).rejects.toThrow("falhou");
   });
 });

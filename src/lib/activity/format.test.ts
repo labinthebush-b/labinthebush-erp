@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actorInitials, describeActivity } from "./format";
+import { actorInitials, describeActivity, viaLabel } from "./format";
 
 describe("describeActivity", () => {
   it("monta a frase com ação, tipo e resumo", () => {
@@ -24,5 +24,19 @@ describe("actorInitials", () => {
 
   it("não quebra com texto vazio", () => {
     expect(actorInitials("  ")).toBe("?");
+  });
+});
+
+describe("viaLabel", () => {
+  it("mostra o nome da chave de IA", () => {
+    expect(viaLabel("Claude")).toBe("pela IA (Claude)");
+  });
+
+  it("chave sem nome vira só 'pela IA'", () => {
+    expect(viaLabel("IA")).toBe("pela IA");
+  });
+
+  it("mudança feita na tela não tem marca", () => {
+    expect(viaLabel(null)).toBeNull();
   });
 });

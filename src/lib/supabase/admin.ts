@@ -16,8 +16,12 @@ import { getSupabaseServiceRoleKey, getSupabaseUrl } from "./env";
 //     user. Every query made with this client MUST filter by the resolved
 //     user_id explicitly (RLS isn't there to save you here) — see
 //     src/lib/ai/keys.ts and src/lib/ai/context.ts for the pattern.
-export function createAdminClient(): AnySupabaseClient {
+//
+// `headers` vão em toda requisição ao PostgREST. A IA usa isso para dizer ao
+// gatilho do log de atividades qual chave fez a mudança (ver 0008).
+export function createAdminClient(headers?: Record<string, string>): AnySupabaseClient {
   return createSupabaseClient(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
     auth: { autoRefreshToken: false, persistSession: false },
+    ...(headers ? { global: { headers } } : {}),
   });
 }

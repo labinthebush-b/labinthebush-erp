@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/common/page-header";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { actorInitials, describeActivity } from "@/lib/activity/format";
+import { actorInitials, describeActivity, viaLabel } from "@/lib/activity/format";
 import { fetchAccountProfiles, fetchActivity, type ActivityEntry, type UserProfile } from "@/lib/activity/repository";
 import { useSupabaseUser } from "@/lib/supabase/use-supabase-user";
 
@@ -50,6 +50,7 @@ export default function AtividadesPage() {
           {entries?.map((entry) => {
             const profile = profiles.find((p) => p.userId === entry.actorId);
             const name = entry.actorId ? profile?.displayName || entry.actorEmail || "Usuário" : "IA";
+            const via = entry.actorId ? viaLabel(entry.via) : null;
             return (
               <div key={entry.id} className="flex items-center gap-3">
                 <Avatar>
@@ -59,6 +60,12 @@ export default function AtividadesPage() {
                 <div className="min-w-0">
                   <p className="text-sm break-words">
                     <span className="font-medium">{name}</span>{" "}
+                    {via ? (
+                      <span className="inline-flex items-center gap-1 text-muted-foreground">
+                        <Bot className="size-3.5" aria-hidden />
+                        {via}
+                      </span>
+                    ) : null}{" "}
                     {describeActivity(entry.action, entry.entity, entry.summary)}
                   </p>
                   <p className="text-xs text-muted-foreground">{dateFormat.format(new Date(entry.createdAt))}</p>

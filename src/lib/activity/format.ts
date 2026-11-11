@@ -27,3 +27,9 @@ export function actorInitials(name: string): string {
   const words = name.split("@")[0].trim().split(/\s+/).filter(Boolean);
   return words.slice(0, 2).map((word) => word[0].toUpperCase()).join("") || "?";
 }
+
+/** "pela IA (Claude)" when the change came through /api/mcp with a key named "Claude"; null otherwise. */
+export function viaLabel(via: string | null): string | null {
+  if (!via) return null;
+  return via.trim().toLowerCase() === "ia" ? "pela IA" : `pela IA (${via.trim()})`;
+}

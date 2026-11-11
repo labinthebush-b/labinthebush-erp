@@ -6,7 +6,7 @@
 import type { AnySupabaseClient } from "@/lib/supabase/types";
 
 /** O que a IA pode propor. Cada tipo tem o seu payload, validado no passo de confirmação (ver src/lib/ai/tools/*). */
-export type ProposalKind = "transaction" | "sale" | "task" | "contact";
+export type ProposalKind = "transaction" | "transaction_update" | "transaction_delete" | "sale" | "task" | "contact";
 
 export type Proposal = {
   id: string;

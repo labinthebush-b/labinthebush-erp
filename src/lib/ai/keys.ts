@@ -102,6 +102,11 @@ export async function revokeApiKey(userId: string, id: string, client: AnySupaba
  * scripts/seed-dev-data.ts.
  */
 export async function resolveUserIdFromApiKey(rawKey: string, adminClient: AnySupabaseClient): Promise<string | null> {
+  return (await resolveApiKey(rawKey, adminClient))?.userId ?? null;
+}
+
+/** Same as resolveUserIdFromApiKey, but also returns which key it was (the activity log names the key). */
+export async function resolveApiKey(rawKey: string, adminClient: AnySupabaseClient): Promise<{ keyId: string; userId: string } | null> {
   if (!rawKey.startsWith(KEY_PREFIX)) return null;
   const keyHash = await sha256Hex(rawKey);
 
@@ -121,5 +126,15 @@ export async function resolveUserIdFromApiKey(rawKey: string, adminClient: AnySu
     // Configurações), nunca parte da decisão de autenticação.
   }
 
-  return data.user_id as string;
+  return { keyId: data.id as string, userId: data.user_id as string };
+}
+
+/**
+ * Conta compartilhada (0006): um sócio usa os dados do dono. Mesma regra de
+ * public.current_account_id(), que aqui não vale porque não há sessão.
+ */
+export async function resolveAccountId(userId: string, adminClient: AnySupabaseClient): Promise<string> {
+  const { data, error } = await adminClient.from("account_members").select("owner_id").eq("member_id", userId).maybeSingle();
+  if (error) throw error;
+  return (data?.owner_id as string | undefined) ?? userId;
 }

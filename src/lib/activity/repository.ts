@@ -16,6 +16,8 @@ export type ActivityEntry = {
   entity: string;
   action: ActivityAction;
   summary: string | null;
+  /** Nome da chave de IA quando a mudança veio do /api/mcp (0008); null quando foi pela tela. */
+  via: string | null;
   createdAt: string;
 };
 
@@ -27,6 +29,7 @@ type ActivityRow = {
   entity: string;
   action: ActivityAction;
   summary: string | null;
+  via: string | null;
   created_at: string;
 };
 
@@ -39,7 +42,7 @@ function rowToProfile(row: ProfileRow): UserProfile {
 export async function fetchActivity(accountId: string, limit: number): Promise<ActivityEntry[]> {
   const { data, error } = await createClient()
     .from("activity_log")
-    .select("id, actor_id, actor_email, entity, action, summary, created_at")
+    .select("id, actor_id, actor_email, entity, action, summary, via, created_at")
     .eq("user_id", accountId)
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -51,6 +54,7 @@ export async function fetchActivity(accountId: string, limit: number): Promise<A
     entity: row.entity,
     action: row.action,
     summary: row.summary,
+    via: row.via ?? null,
     createdAt: row.created_at,
   }));
 }

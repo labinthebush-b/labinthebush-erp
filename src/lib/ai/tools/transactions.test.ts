@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { cancelTransaction, confirmTransaction, proposeTransaction } from "./transactions";
+import {
+  cancelTransaction,
+  confirmTransaction,
+  proposeDeleteTransaction,
+  proposeTransaction,
+  proposeUpdateTransaction,
+} from "./transactions";
 import type { AiRequestContext } from "../context";
 import type { AnySupabaseClient } from "@/lib/supabase/types";
 
@@ -22,16 +28,20 @@ function createFakeClient() {
     ai_action_proposals: [],
     custom_categories: [],
     transactions: [],
+    month_closings: [],
   };
   let idCounter = 0;
 
   function builderFor(table: string) {
-    let operation: "select" | "insert" | "update" | "upsert" = "select";
+    let operation: "select" | "insert" | "update" | "upsert" | "delete" = "select";
     let values: Record<string, unknown> = {};
     let upsertRows: Row[] = [];
     const filters: { column: string; value: unknown }[] = [];
+    const inFilters: { column: string; values: unknown[] }[] = [];
 
-    const matches = (row: Row) => filters.every(({ column, value }) => row[column] === value);
+    const matches = (row: Row) =>
+      filters.every(({ column, value }) => row[column] === value) &&
+      inFilters.every(({ column, values }) => values.includes(row[column]));
 
     function run() {
       const rows = tables[table];
@@ -55,6 +65,11 @@ function createFakeClient() {
         const updated = rows.filter(matches);
         for (const row of updated) Object.assign(row, values);
         return { data: updated, error: null };
+      }
+      if (operation === "delete") {
+        const removed = rows.filter(matches);
+        tables[table] = rows.filter((row) => !matches(row));
+        return { data: removed, error: null };
       }
       if (operation === "upsert") {
         for (const row of upsertRows) {
@@ -86,6 +101,14 @@ function createFakeClient() {
       },
       eq: (column: string, value: unknown) => {
         filters.push({ column, value });
+        return builder;
+      },
+      in: (column: string, values: unknown[]) => {
+        inFilters.push({ column, values });
+        return builder;
+      },
+      delete: () => {
+        operation = "delete";
         return builder;
       },
       single: () => {
@@ -240,5 +263,136 @@ describe("cancelTransaction", () => {
   it("proposta inexistente é rejeitada", async () => {
     const ctx = makeCtx();
     await expect(cancelTransaction(ctx, { proposalId: "nao-existe" })).rejects.toThrow("não encontrada");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Data do gasto, mês fechado, edição e exclusão
+// ---------------------------------------------------------------------------
+
+async function createdTransaction(ctx: ReturnType<typeof makeCtx>, extra: Record<string, unknown> = {}) {
+  const { proposalId } = await proposeTransaction(ctx, {
+    type: "expense",
+    amount: 80,
+    description: "Embalagem",
+    category: "embalagem",
+    date: "2026-11-03",
+  });
+  const { transactionId } = await confirmTransaction(ctx, { proposalId });
+  Object.assign(ctx.rawClient.tables.transactions[0], extra);
+  return transactionId;
+}
+
+describe("data do gasto", () => {
+  it("grava na data informada (ex.: a anotada no papel), não em hoje", async () => {
+    const ctx = makeCtx();
+    await createdTransaction(ctx);
+    expect(ctx.rawClient.tables.transactions[0].date).toBe("2026-11-03");
+    expect(ctx.rawClient.tables.transactions[0].status).toBe("concluido");
+  });
+
+  it("rejeita data fora do formato yyyy-MM-dd", async () => {
+    const ctx = makeCtx();
+    await expect(
+      proposeTransaction(ctx, { type: "expense", amount: 10, description: "x", category: "outros", date: "03/11/2026" })
+    ).rejects.toThrow("yyyy-MM-dd");
+  });
+
+  it("recusa lançar em mês fechado, igual à tela", async () => {
+    const ctx = makeCtx();
+    ctx.rawClient.tables.month_closings.push({ id: "2026-10", user_id: USER, status: "fechado" });
+    await expect(
+      proposeTransaction(ctx, { type: "expense", amount: 10, description: "x", category: "outros", date: "2026-10-20" })
+    ).rejects.toThrow("2026-10 está fechado");
+  });
+});
+
+describe("proposeUpdateTransaction", () => {
+  it("só grava depois de confirmar, e registra o histórico de edição", async () => {
+    const ctx = makeCtx();
+    const transactionId = await createdTransaction(ctx);
+
+    const proposal = await proposeUpdateTransaction(ctx, { transactionId, amount: 95, description: "Embalagem kraft" });
+    expect(proposal.preview).toContain("Antes:");
+    expect(proposal.preview).toContain("95,00");
+    expect(proposal.camposAlterados).toEqual(["amount", "description"]);
+    expect(ctx.rawClient.tables.transactions[0].amount).toBe(8000);
+
+    await confirmTransaction(ctx, { proposalId: proposal.proposalId });
+    const row = ctx.rawClient.tables.transactions[0];
+    expect(row.amount).toBe(9500);
+    expect(row.description).toBe("Embalagem kraft");
+    expect(row.edited).toBe(true);
+    expect((row.edit_history as { fields: string[] }[])[0].fields).toEqual(["amount", "description"]);
+    expect(ctx.rawClient.tables.transactions).toHaveLength(1);
+  });
+
+  it("recusa quando nada muda", async () => {
+    const ctx = makeCtx();
+    const transactionId = await createdTransaction(ctx);
+    await expect(proposeUpdateTransaction(ctx, { transactionId, amount: 80 })).rejects.toThrow("Nada mudou");
+  });
+
+  it("não encontra lançamento de outra conta", async () => {
+    const ctx = makeCtx();
+    const transactionId = await createdTransaction(ctx);
+    const outraConta: AiRequestContext = { userId: "user-2", client: ctx.client };
+    await expect(proposeUpdateTransaction(outraConta, { transactionId, amount: 1 })).rejects.toThrow("não encontrado");
+  });
+
+  it("recusa lançamento gerado por venda", async () => {
+    const ctx = makeCtx();
+    const transactionId = await createdTransaction(ctx, { relations: { saleId: "venda-1" } });
+    await expect(proposeUpdateTransaction(ctx, { transactionId, amount: 1 })).rejects.toThrow("gerado por uma venda");
+    await expect(proposeDeleteTransaction(ctx, { transactionId })).rejects.toThrow("gerado por uma venda");
+  });
+
+  it("recusa mover um lançamento para um mês fechado", async () => {
+    const ctx = makeCtx();
+    const transactionId = await createdTransaction(ctx);
+    ctx.rawClient.tables.month_closings.push({ id: "2026-10", user_id: USER, status: "fechado" });
+    await expect(proposeUpdateTransaction(ctx, { transactionId, date: "2026-10-31" })).rejects.toThrow("fechado");
+  });
+
+  it("não confirma se o lançamento mudou depois do preview", async () => {
+    const ctx = makeCtx();
+    const transactionId = await createdTransaction(ctx);
+    const { proposalId } = await proposeUpdateTransaction(ctx, { transactionId, amount: 95 });
+    ctx.rawClient.tables.transactions[0].updated_at = "2099-01-01T00:00:00.000Z";
+    await expect(confirmTransaction(ctx, { proposalId })).rejects.toThrow("mudou depois da proposta");
+    expect(ctx.rawClient.tables.transactions[0].amount).toBe(8000);
+  });
+});
+
+describe("proposeDeleteTransaction", () => {
+  it("só apaga depois de confirmar", async () => {
+    const ctx = makeCtx();
+    const transactionId = await createdTransaction(ctx);
+
+    const { proposalId, preview } = await proposeDeleteTransaction(ctx, { transactionId });
+    expect(preview).toContain("EXCLUIR");
+    expect(ctx.rawClient.tables.transactions).toHaveLength(1);
+
+    await confirmTransaction(ctx, { proposalId });
+    expect(ctx.rawClient.tables.transactions).toHaveLength(0);
+    await expect(confirmTransaction(ctx, { proposalId })).rejects.toThrow(/já está com status "confirmed"/);
+  });
+
+  it("proposta de exclusão cancelada não apaga nada", async () => {
+    const ctx = makeCtx();
+    const transactionId = await createdTransaction(ctx);
+    const { proposalId } = await proposeDeleteTransaction(ctx, { transactionId });
+    await cancelTransaction(ctx, { proposalId });
+    await expect(confirmTransaction(ctx, { proposalId })).rejects.toThrow(/cancelled/);
+    expect(ctx.rawClient.tables.transactions).toHaveLength(1);
+  });
+
+  it("recusa excluir em mês fechado", async () => {
+    const ctx = makeCtx();
+    const transactionId = await createdTransaction(ctx);
+    const { proposalId } = await proposeDeleteTransaction(ctx, { transactionId });
+    ctx.rawClient.tables.month_closings.push({ id: "2026-11", user_id: USER, status: "fechado" });
+    await expect(confirmTransaction(ctx, { proposalId })).rejects.toThrow("fechado");
+    expect(ctx.rawClient.tables.transactions).toHaveLength(1);
   });
 });

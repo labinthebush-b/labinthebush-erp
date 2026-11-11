@@ -7,7 +7,13 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { AiRequestContext } from "./context";
 import * as queries from "./tools/queries";
-import { proposeTransaction, confirmTransaction, cancelTransaction } from "./tools/transactions";
+import {
+  proposeTransaction,
+  confirmTransaction,
+  cancelTransaction,
+  proposeUpdateTransaction,
+  proposeDeleteTransaction,
+} from "./tools/transactions";
 import { cancelProposal, confirmProposal, proposeContact, proposeSale, proposeTask } from "./tools/actions";
 
 const periodShape = {
@@ -258,7 +264,10 @@ export function createErpMcpServer(ctx: AiRequestContext): McpServer {
         type: z.enum(["income", "expense", "owner_contribution", "owner_withdrawal"]).describe("income=receita, expense=despesa, owner_contribution=aporte, owner_withdrawal=retirada"),
         amount: z.number().positive().describe("Valor em reais, ex.: 80 ou 79.9"),
         description: z.string().min(1),
-        date: z.string().optional().describe("yyyy-MM-dd; default hoje"),
+        date: z
+          .string()
+          .optional()
+          .describe("Dia em que o gasto/recebimento aconteceu, yyyy-MM-dd (ex.: a data anotada no papel). Default: hoje."),
         category: z.string().optional().describe("Id de categoria existente. Se omitido, uma é sugerida e aparece marcada como sugestão no preview."),
         paymentSource: z.enum(["conta_pessoal", "conta_marca", "dinheiro", "cartao", "outro"]).optional(),
         dueDate: z.string().optional().describe("yyyy-MM-dd. Informe para um lançamento futuro/pendente (a pagar ou a receber)."),
@@ -278,12 +287,58 @@ export function createErpMcpServer(ctx: AiRequestContext): McpServer {
     "confirm_transaction",
     {
       title: "Confirmar um lançamento proposto",
-      description: "Efetiva a proposta criada por propose_transaction — só depois disso a transação passa a existir no Financeiro. Só chame depois que o usuário confirmar explicitamente o preview.",
+      description:
+        "Efetiva uma proposta de propose_transaction, propose_update_transaction ou propose_delete_transaction — só então o Financeiro muda. Só chame depois que o usuário confirmar explicitamente o preview.",
       inputSchema: { proposalId: z.string() },
     },
     async (args) => {
       try {
         return asToolResult(await confirmTransaction(ctx, args));
+      } catch (error) {
+        return asErrorResult(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "propose_update_transaction",
+    {
+      title: "Propor a edição de um lançamento",
+      description:
+        "Monta a alteração de um lançamento existente (pegue o id em get_receitas_despesas) e devolve um preview com antes e depois. Informe só os campos que mudam. NÃO grava: chame confirm_transaction com o proposalId depois que o usuário confirmar. Lançamentos gerados por venda não podem ser editados aqui (edite a venda no ERP).",
+      inputSchema: {
+        transactionId: z.string(),
+        type: z.enum(["income", "expense", "owner_contribution", "owner_withdrawal"]).optional(),
+        amount: z.number().positive().optional().describe("Novo valor em reais"),
+        description: z.string().min(1).optional(),
+        date: z.string().optional().describe("Nova data, yyyy-MM-dd"),
+        category: z.string().optional().describe("Id de categoria existente"),
+        paymentSource: z.enum(["conta_pessoal", "conta_marca", "dinheiro", "cartao", "outro"]).optional(),
+        status: z.enum(["concluido", "pendente"]).optional().describe("concluido=realizado/pago, pendente=a pagar/a receber"),
+        dueDate: z.string().optional().describe("yyyy-MM-dd"),
+        notes: z.string().optional(),
+      },
+    },
+    async (args) => {
+      try {
+        return asToolResult(await proposeUpdateTransaction(ctx, args));
+      } catch (error) {
+        return asErrorResult(error);
+      }
+    }
+  );
+
+  server.registerTool(
+    "propose_delete_transaction",
+    {
+      title: "Propor a exclusão de um lançamento",
+      description:
+        "Mostra o lançamento que será excluído (pegue o id em get_receitas_despesas). NÃO apaga: chame confirm_transaction com o proposalId depois que o usuário confirmar. Lançamentos gerados por venda não podem ser excluídos aqui (exclua a venda no ERP).",
+      inputSchema: { transactionId: z.string() },
+    },
+    async (args) => {
+      try {
+        return asToolResult(await proposeDeleteTransaction(ctx, args));
       } catch (error) {
         return asErrorResult(error);
       }

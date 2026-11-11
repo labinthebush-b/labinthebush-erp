@@ -6,9 +6,13 @@
 // doesn't know or care how they were resolved.
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AnySupabaseClient } from "@/lib/supabase/types";
-import { resolveUserIdFromApiKey } from "./keys";
+import { resolveAccountId, resolveApiKey } from "./keys";
+
+/** Header que o gatilho log_activity lê para saber qual chave de IA mudou o dado (0008). */
+export const AI_KEY_HEADER = "x-erp-ai-key-id";
 
 export type AiRequestContext = {
+  /** A conta cujos dados são lidos e gravados: o dono, mesmo quando a chave é de um sócio. */
   userId: string;
   /**
    * Service-role client. Every call made with it in the tools layer filters
@@ -25,9 +29,10 @@ export async function resolveAiRequestContext(request: Request): Promise<AiReque
   if (!match) return null;
 
   const rawKey = match[1].trim();
-  const client = createAdminClient();
-  const userId = await resolveUserIdFromApiKey(rawKey, client);
-  if (!userId) return null;
+  const lookup = createAdminClient();
+  const key = await resolveApiKey(rawKey, lookup);
+  if (!key) return null;
 
-  return { userId, client };
+  const userId = await resolveAccountId(key.userId, lookup);
+  return { userId, client: createAdminClient({ [AI_KEY_HEADER]: key.keyId }) };
 }
