@@ -3,6 +3,7 @@
 import { Info, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { EmptyState } from "@/components/common/empty-state";
+import { Tag } from "@/components/common/tag";
 import { monthIdsUpTo } from "@/lib/finance/period";
 import { useFinance } from "@/lib/finance/finance-provider";
 import { useSettings } from "@/lib/settings/settings-provider";
@@ -46,7 +47,12 @@ function TrendTag({ trend }: { trend: CategoryReference["trend"] }) {
 /** Seções 5 e 6 — referências históricas por categoria (médias, mediana, mín/máx, tendência simples) e observações descritivas. */
 export function PlanningReferences({ monthId }: { monthId: string }) {
   const { transactions, categories } = useFinance();
-  const { settings } = useSettings();
+  const { settings, updateSettings } = useSettings();
+
+  function toggleTracked(categoryId: string) {
+    const current = settings.planningTrackedCategoryIds;
+    updateSettings({ planningTrackedCategoryIds: current.includes(categoryId) ? current.filter((id) => id !== categoryId) : [...current, categoryId] });
+  }
 
   const monthIds = monthIdsUpTo(monthId, HISTORY_MONTHS);
   const despesaCategories = categories.filter((c) => c.group === "custo" || c.group === "despesa");
@@ -88,7 +94,17 @@ export function PlanningReferences({ monthId }: { monthId: string }) {
           <CardTitle>Referências históricas</CardTitle>
           <CardDescription>Como cada categoria se compara à própria história da operação — sem metas prontas.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <span className="text-caption text-muted-foreground">Categorias acompanhadas (nenhuma marcada = todas)</span>
+            <div className="flex flex-wrap gap-1.5">
+              {despesaCategories.map((c) => (
+                <button key={c.id} type="button" aria-pressed={settings.planningTrackedCategoryIds.includes(c.id)} onClick={() => toggleTracked(c.id)}>
+                  <Tag color={settings.planningTrackedCategoryIds.includes(c.id) ? "blue" : "neutral"}>{c.label}</Tag>
+                </button>
+              ))}
+            </div>
+          </div>
           {references.length === 0 ? (
             <EmptyState
               className="border-0 py-6"

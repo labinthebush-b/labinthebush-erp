@@ -39,12 +39,12 @@ export function StatCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         <div className="flex flex-wrap items-end justify-between gap-x-2 gap-y-1">
-          <span className="text-heading-sm font-display text-foreground">{value}</span>
+          <span className="font-display text-heading text-foreground">{value}</span>
           {trend !== undefined ? (
             <span
               className={cn(
                 "flex shrink-0 items-center gap-0.5 text-caption font-medium whitespace-nowrap",
-                trend >= 0 ? "text-vivid-green" : "text-destructive"
+                trend >= 0 ? "text-vivid-green" : "text-tangerine"
               )}
             >
               {trend >= 0 ? (
@@ -64,7 +64,7 @@ export function StatCard({
   if (!href) return content;
 
   return (
-    <Link href={href} className="block rounded-xl focus-visible:outline-2 focus-visible:outline-ring">
+    <Link href={href} className="block rounded-2xl focus-visible:outline-2 focus-visible:outline-ring">
       {content}
     </Link>
   );

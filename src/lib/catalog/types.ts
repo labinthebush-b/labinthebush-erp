@@ -22,6 +22,8 @@ export type Product = {
 
   // Optional fields, revealed progressively in the UI.
   image?: string;
+  /** Página do produto na loja (Nuvemshop) — de onde vêm foto, preço e descrição. */
+  storeUrl?: string;
   category?: string;
   collection?: string;
   sku?: string;

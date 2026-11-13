@@ -30,8 +30,10 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 export const DASHBOARD_WIDGETS = [
-  { id: "fluxo-caixa", label: "Fluxo de caixa da semana" },
-  { id: "tendencia-vendas", label: "Tendência de vendas" },
+  { id: "fluxo-caixa", label: "Caixa (gráfico)" },
+  { id: "tendencia-vendas", label: "Peça mais vendida" },
+  { id: "proxima-acao", label: "Próxima ação" },
+  { id: "atividades", label: "Atividades recentes" },
   { id: "ultimas-vendas", label: "Últimas vendas" },
   { id: "alertas", label: "Alertas" },
   { id: "proximos-pagamentos", label: "Próximos pagamentos" },

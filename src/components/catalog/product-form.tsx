@@ -1,18 +1,18 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- foto vem do CDN da loja (Nuvemshop) ou de uma URL qualquer */
+
 import * as React from "react";
 import { toast } from "sonner";
+import { Download, ExternalLink, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Segmented } from "@/components/common/segmented";
+import { calculateProductCost } from "@/lib/catalog/calculations";
+import type { StoreProduct } from "@/lib/catalog/store-import";
 import { Field } from "@/components/common/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/common/currency-input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { CollapsibleSection } from "@/components/common/collapsible-section";
 import { DrawerForm, DrawerFormActions } from "@/components/common/drawer-form";
 import { CostComponentsEditor } from "@/components/catalog/cost-components-editor";
@@ -59,6 +59,40 @@ export function ProductForm({ product, onDone }: { product?: Product; onDone: ()
   const [image, setImage] = React.useState(product?.image ?? "");
   const [description, setDescription] = React.useState(product?.description ?? "");
   const [notes, setNotes] = React.useState(product?.notes ?? "");
+  const [storeUrl, setStoreUrl] = React.useState(product?.storeUrl ?? "");
+  const [importing, setImporting] = React.useState(false);
+
+  /** Puxa da página da loja o que ela sabe; o resto (custos, fornecedor...) você completa. */
+  async function importFromStore() {
+    if (!storeUrl.trim()) return toast.error("Cole o link do produto na loja.");
+    setImporting(true);
+    try {
+      const res = await fetch(`/api/products/import?url=${encodeURIComponent(storeUrl.trim())}`);
+      const body = (await res.json().catch(() => ({}))) as Partial<StoreProduct> & { error?: string };
+      if (!res.ok || !body.name) {
+        toast.error(body.error ?? "Não foi possível ler esse link.");
+        return;
+      }
+      setStoreUrl(body.storeUrl ?? storeUrl);
+      setName(body.name);
+      if (body.price) setPrice(body.price);
+      if (body.image) setImage(body.image);
+      if (body.description) setDescription(body.description);
+      if (body.collection) setCollection(body.collection);
+      if (body.sizes?.length) setSizes(body.sizes.join(", "));
+      if (body.colors?.length) setColors(body.colors.join(", "));
+      if (status === "rascunho") setStatus("ativo");
+      toast.success("Dados puxados da loja — agora complete os custos.");
+    } catch {
+      toast.error("Não foi possível falar com a loja agora.");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  const unitCost = calculateProductCost(costComponents);
+  const unitProfit = price - unitCost;
+  const margin = price > 0 ? (unitProfit / price) * 100 : 0;
 
   const hasExtraFields = Boolean(
     product?.category || product?.collection || product?.sku || product?.supplier ||
@@ -83,6 +117,7 @@ export function ProductForm({ product, onDone }: { product?: Product; onDone: ()
       sizes: sizes ? parseListInput(sizes) : undefined,
       colors: colors ? parseListInput(colors) : undefined,
       image: image || undefined,
+      storeUrl: storeUrl.trim() || undefined,
       description: description || undefined,
       notes: notes || undefined,
     };
@@ -101,6 +136,52 @@ export function ProductForm({ product, onDone }: { product?: Product; onDone: ()
   return (
     <>
       <DrawerForm>
+        <Field label="Link do produto na loja" optional hint="Cole o link de labinthebush.com/produtos/… e o ERP puxa nome, preço, foto, descrição, coleção e tamanhos.">
+          <div className="flex gap-2">
+            <Input
+              value={storeUrl}
+              onChange={(e) => setStoreUrl(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void importFromStore();
+                }
+              }}
+              placeholder="labinthebush.com/produtos/…"
+              className="flex-1"
+            />
+            <Button type="button" variant="outline" onClick={importFromStore} disabled={importing}>
+              {importing ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+              Puxar dados
+            </Button>
+          </div>
+        </Field>
+
+        <div aria-label="Prévia do produto" className="brand-gradient flex gap-4 rounded-3xl p-3">
+          {image ? (
+            <img src={image} alt="" className="size-32 shrink-0 rounded-2xl bg-white object-cover" />
+          ) : (
+            <div className="flex size-32 shrink-0 items-center justify-center rounded-2xl bg-white/70 text-center text-caption">sem foto</div>
+          )}
+          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 py-1 pr-2">
+            <span className="truncate font-display text-subheading">{name || "Novo produto"}</span>
+            <div className="flex justify-between text-body"><span>Preço</span><span className="font-semibold">{price > 0 ? formatCurrencyCents(price) : "—"}</span></div>
+            <div className="flex justify-between text-body"><span>Lucro por peça</span><span className="font-semibold">{price > 0 ? formatCurrencyCents(unitProfit) : "—"}</span></div>
+            <div className="h-2 rounded-full bg-white/70">
+              <div className={margin < 30 ? "h-2 rounded-full bg-tangerine" : "h-2 rounded-full bg-primary"} style={{ width: `${Math.max(0, Math.min(100, margin))}%` }} />
+            </div>
+            <span className="text-caption">
+              {price > 0 ? `Margem ${Math.round(margin)}%` : "Defina o preço"}
+              {unitCost === 0 && price > 0 ? " · faltam os custos" : ""}
+            </span>
+            {storeUrl && product?.storeUrl === storeUrl ? (
+              <a href={storeUrl} target="_blank" rel="noreferrer" className="flex w-fit items-center gap-1 text-caption font-medium underline">
+                Ver na loja <ExternalLink className="size-3" />
+              </a>
+            ) : null}
+          </div>
+        </div>
+
         <Field label="Nome">
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Camiseta Oversized Preta" autoFocus />
         </Field>
@@ -110,14 +191,7 @@ export function ProductForm({ product, onDone }: { product?: Product; onDone: ()
         </Field>
 
         <Field label="Status">
-          <Select value={status} onValueChange={(value) => setStatus(value as ProductStatus)}>
-            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {STATUS_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Segmented label="Status" variant="chips" value={status} onChange={setStatus} options={STATUS_OPTIONS} />
         </Field>
 
         <div className="grid grid-cols-2 gap-3">
@@ -187,7 +261,6 @@ export function ProductForm({ product, onDone }: { product?: Product; onDone: ()
             <div className="flex items-start gap-3">
               <Input value={image} onChange={(e) => setImage(e.target.value)} placeholder="https://..." className="flex-1" />
               {image ? (
-                // eslint-disable-next-line @next/next/no-img-element -- external, arbitrary URL; next/image would require configuring every possible remote host
                 <img
                   src={image}
                   alt=""

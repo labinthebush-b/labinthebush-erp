@@ -2,10 +2,11 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ArrowDown, ArrowRight, ExternalLink, Link2, Megaphone, RefreshCw, ShoppingBag, UserPlus, Wallet, AlertTriangle, Lightbulb } from "lucide-react";
+import { ExternalLink, Link2, Megaphone, RefreshCw, ShoppingBag, UserPlus, Wallet, AlertTriangle, Lightbulb } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/common/page-header";
+import { Segmented } from "@/components/common/segmented";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useUI } from "@/components/providers/ui-provider";
 import { TaskForm } from "@/components/tasks/task-form";
@@ -24,7 +25,7 @@ import { isWithinRange, resolvePeriodRange } from "@/lib/reports/period-range";
 import { todayISO } from "@/lib/finance/actions";
 import { formatCurrencyCents } from "@/lib/currency";
 import { cn } from "@/lib/utils";
-import { buildSalesFunnel, deriveFunnelInsights, type FunnelInsight, type FunnelSource, type FunnelStage, type FunnelStageId } from "@/lib/marketing/funnel";
+import { buildSalesFunnel, deriveFunnelInsights, type FunnelInsight, type FunnelSource, type FunnelStageId } from "@/lib/marketing/funnel";
 import type { MarketingPeriodDays, MarketingResponse } from "@/lib/marketing/types";
 import { CampaignsSection } from "@/components/marketing/campaigns-section";
 
@@ -43,64 +44,9 @@ function addDaysISO(isoDate: string, days: number): string {
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
-function StageBand({ stage, loading, actions }: { stage: FunnelStage; loading: boolean; actions: React.ReactNode }) {
-  const style = STAGE_STYLE[stage.id];
-  return (
-    <section className={cn("mx-auto flex w-full flex-col gap-3 rounded-2xl border p-4", style.band, style.width)}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h2 className={cn("font-display text-body-lg font-medium", style.accent)}>{stage.title}</h2>
-          <p className="text-caption text-muted-foreground">{stage.question}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">{actions}</div>
-      </div>
-      <div className="flex flex-wrap items-stretch gap-2">
-        {stage.metrics.map((metric, index) => (
-          <React.Fragment key={metric.id}>
-            {metric.inPath && (index > 0 || stage.id !== "topo") ? (
-              <div className="hidden flex-col items-center justify-center px-0.5 text-caption text-muted-foreground sm:flex">
-                <ArrowRight className="size-3.5" />
-                {metric.rateFromPrevious !== undefined ? <span className="font-medium text-foreground">{formatRate(metric.rateFromPrevious)}</span> : null}
-              </div>
-            ) : null}
-            <div
-              className={cn(
-                "flex min-w-36 flex-1 flex-col gap-1 rounded-xl p-3",
-                metric.inPath ? "bg-card shadow-subtle" : "border border-dashed border-border bg-card/60"
-              )}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-caption text-muted-foreground">{metric.label}</span>
-                <span className="rounded-full bg-paper-mist px-1.5 text-[10px] text-muted-foreground">{SOURCE_LABEL[metric.source]}</span>
-              </div>
-              {loading && metric.value === undefined ? (
-                <Skeleton className="h-7 w-16" />
-              ) : (
-                <span className="font-display text-heading-sm text-foreground">{metric.value === undefined ? "—" : integer.format(metric.value)}</span>
-              )}
-              {metric.rateFromPrevious !== undefined ? (
-                <span className="text-caption text-muted-foreground sm:hidden">{formatRate(metric.rateFromPrevious)} da etapa anterior</span>
-              ) : null}
-              {metric.hint ? <span className="text-caption text-muted-foreground">{metric.hint}</span> : null}
-            </div>
-          </React.Fragment>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function formatRate(rate: number): string {
   if (rate > 0 && rate < 1) return `${rate.toFixed(1)}%`;
   return `${Math.round(rate)}%`;
-}
-
-function StageConnector() {
-  return (
-    <div className="flex justify-center text-muted-foreground" aria-hidden>
-      <ArrowDown className="size-4" />
-    </div>
-  );
 }
 
 export function MarketingPanel() {
@@ -223,105 +169,157 @@ export function MarketingPanel() {
     ),
   };
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <Tabs
-          value={String(days)}
-          onValueChange={(value) => {
-            setLoading(true);
-            setDays(value === "7" ? 7 : value === "tudo" ? "tudo" : 30);
-          }}
-        >
-          <TabsList>
-            <TabsTrigger value="7">Últimos 7 dias</TabsTrigger>
-            <TabsTrigger value="30">Últimos 30 dias</TabsTrigger>
-            <TabsTrigger value="tudo">Desde o início</TabsTrigger>
-          </TabsList>
-        </Tabs>
-        <span className="text-caption text-muted-foreground">
-          {erp.salesCount} {erp.salesCount === 1 ? "venda" : "vendas"} · {formatCurrencyCents(erp.revenue)} no período
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          className="ml-auto"
-          disabled={loading}
-          onClick={() => {
-            setLoading(true);
-            setReloadKey((k) => k + 1);
-          }}
-        >
-          <RefreshCw className={cn("size-3.5", loading && "animate-spin")} /> Atualizar
-        </Button>
-      </div>
+  const pathMetrics = funnel.flatMap((stage) => stage.metrics.filter((m) => m.inPath).map((m) => ({ ...m, stage: stage.id })));
+  const pathMax = Math.max(1, ...pathMetrics.map((m) => m.value ?? 0));
+  const parallel = funnel.flatMap((stage) => stage.metrics.filter((m) => !m.inPath).map((m) => ({ ...m, stage: stage.id })));
+  const periodLabel = days === "tudo" ? "desde o início" : `nos últimos ${days} dias`;
+  const viewItem = ga4?.funnel.find((s) => s.event === "view_item")?.count;
+  const purchases = ga4?.funnel.find((s) => s.event === "purchase")?.count;
 
-      {failed ? <p className="rounded-lg bg-paper-mist p-3 text-caption text-muted-foreground">Não foi possível carregar o marketing: {failed}</p> : null}
+  return (
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        title="Marketing"
+        description={`Site, Instagram e vendas do ERP — ${periodLabel}.`}
+        stats={[
+          { value: ga4 ? integer.format(ga4.sessions) : "—", label: "visitas na loja" },
+          { value: instagram ? integer.format(instagram.reach) : "—", label: days === "tudo" ? "alcance (30 dias)" : "alcance no Instagram" },
+        ]}
+        action={
+          <>
+            <Segmented
+              label="Período"
+              value={String(days) as "7" | "30" | "tudo"}
+              onChange={(value) => {
+                setLoading(true);
+                setDays(value === "7" ? 7 : value === "tudo" ? "tudo" : 30);
+              }}
+              options={[
+                { value: "tudo", label: "Desde o início" },
+                { value: "30", label: "30 dias" },
+                { value: "7", label: "7 dias" },
+              ]}
+            />
+            <Button
+              variant="outline"
+              size="icon-lg"
+              className="bg-card"
+              aria-label="Atualizar dados"
+              disabled={loading}
+              onClick={() => {
+                setLoading(true);
+                setReloadKey((k) => k + 1);
+              }}
+            >
+              <RefreshCw className={cn("size-4", loading && "animate-spin")} />
+            </Button>
+          </>
+        }
+      />
+
+      {failed ? <p className="rounded-2xl bg-paper-mist p-3 text-body text-muted-foreground">Não foi possível carregar o marketing: {failed}</p> : null}
       {sourceErrors.map((message) => (
-        <p key={message} className="rounded-lg bg-paper-mist p-3 text-caption text-muted-foreground">{message}</p>
+        <p key={message} className="rounded-2xl bg-paper-mist p-3 text-body text-muted-foreground">{message}</p>
       ))}
 
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="flex flex-col gap-2">
-          {funnel.map((stage, index) => (
-            <React.Fragment key={stage.id}>
-              {index > 0 ? <StageConnector /> : null}
-              <StageBand stage={stage} loading={loading} actions={stageActions[stage.id]} />
-            </React.Fragment>
-          ))}
-          <p className="mt-1 text-center text-caption text-muted-foreground">
-            As porcentagens seguem o caminho até a compra (alcance → loja → produto → carrinho → checkout → venda → paga). Cartões tracejados são indicadores paralelos. Cada fonte mede pessoas de um jeito, então leia como tendência, não como conta exata.
-          </p>
-        </div>
+      <section aria-label="Resumo do período" className="brand-gradient brand-gradient-animated flex flex-wrap items-stretch gap-3 rounded-[28px] p-3">
+        {[
+          { label: "faturamento no ERP", value: formatCurrencyCents(erp.revenue) },
+          { label: erp.salesCount === 1 ? "venda no ERP" : "vendas no ERP", value: integer.format(erp.salesCount) },
+          { label: "viram um produto no site", value: viewItem === undefined ? "—" : integer.format(viewItem) },
+          { label: "compras vistas pelo site", value: purchases === undefined ? "—" : integer.format(purchases) },
+        ].map((stat) => (
+          <div key={stat.label} className="flex min-w-40 flex-1 flex-col gap-1 rounded-[22px] bg-white/80 px-5 py-4">
+            {loading && stat.value === "—" ? <Skeleton className="h-9 w-20" /> : <span className="font-display text-heading-lg leading-none">{stat.value}</span>}
+            <span className="text-body text-muted-foreground">{stat.label}</span>
+          </div>
+        ))}
+      </section>
 
-        <div className="flex flex-col gap-4">
-        <Card className="h-fit">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Megaphone className="size-4" /> O que fazer agora</CardTitle>
-            <CardDescription>Os gargalos do funil, com a ação de cada um.</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {loading && !data ? (
-              <>
-                <Skeleton className="h-20 w-full" />
-                <Skeleton className="h-20 w-full" />
-              </>
-            ) : insights.length === 0 ? (
-              <p className="text-body text-muted-foreground">Nenhum gargalo evidente no período. 🎯</p>
-            ) : (
-              insights.map((insight) => (
-                <div key={insight.id} className="flex flex-col gap-2 rounded-lg border border-border p-3">
-                  <div className="flex items-start gap-2">
-                    {insight.severity === "atencao" ? (
-                      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-tangerine" />
-                    ) : (
-                      <Lightbulb className="mt-0.5 size-4 shrink-0 text-electric-blue" />
-                    )}
-                    <div className="flex flex-col gap-0.5">
-                      <span className="text-body font-medium text-foreground">{insight.title}</span>
-                      <span className="text-caption text-muted-foreground">{insight.description}</span>
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+        <Card className="gap-4 px-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-display text-subheading">Funil até a compra</h2>
+            <span className="text-caption text-muted-foreground">% = quantos passaram da etapa anterior</span>
+          </div>
+          <ol className="flex flex-col gap-3">
+            {pathMetrics.map((metric) => (
+              <li key={metric.id} className="grid grid-cols-[minmax(0,11rem)_minmax(0,1fr)_4.5rem] items-center gap-3">
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-body">{metric.label}</span>
+                  <span className="text-caption text-muted-foreground">{SOURCE_LABEL[metric.source]} · {metric.stage}</span>
+                </div>
+                <div className="h-9 rounded-full bg-paper-mist">
+                  {metric.value === undefined ? null : (
+                    <div
+                      className="flex h-9 items-center justify-end rounded-full bg-linear-to-r from-brand-blue to-brand-aqua px-3 text-body font-semibold text-foreground"
+                      style={{ width: `${Math.max(8, (metric.value / pathMax) * 100)}%` }}
+                    >
+                      {integer.format(metric.value)}
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <span className={cn("text-[10px] uppercase tracking-wide", STAGE_STYLE[insight.stage].accent)}>{insight.stage}</span>
-                    {insight.action.kind === "task" ? (
-                      <Button size="sm" variant="outline" onClick={() => runInsight(insight)}>{insight.action.label}</Button>
-                    ) : insight.action.kind === "external" ? (
-                      <Button size="sm" variant="outline" asChild>
-                        <a href={insight.action.href} target="_blank" rel="noreferrer">{insight.action.label}</a>
-                      </Button>
-                    ) : (
-                      <Button size="sm" variant="outline" asChild>
-                        <Link href={insight.action.href ?? "/"}>{insight.action.label}</Link>
-                      </Button>
-                    )}
+                  )}
+                </div>
+                <span className="text-right text-body font-semibold">
+                  {loading && metric.value === undefined ? "…" : metric.rateFromPrevious !== undefined ? formatRate(metric.rateFromPrevious) : "—"}
+                </span>
+              </li>
+            ))}
+          </ol>
+          <div className="flex flex-wrap gap-3 border-t border-border pt-4">
+            {parallel.map((metric) => (
+              <div key={metric.id} className="flex min-w-44 flex-1 flex-col gap-0.5 rounded-2xl border border-dashed border-smoke px-4 py-3">
+                <span className="font-display text-heading-sm">{metric.value === undefined ? "—" : integer.format(metric.value)}</span>
+                <span className="text-body">{metric.label}</span>
+                <span className="text-caption text-muted-foreground">{metric.hint}</span>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {stageActions.topo}
+            {stageActions.meio}
+            {stageActions.fundo}
+          </div>
+          <p className="text-caption text-muted-foreground">
+            Cada fonte mede pessoas de um jeito (Instagram, Google Analytics e o ERP), então leia como tendência, não como conta exata.
+          </p>
+        </Card>
+
+        <Card className="h-fit gap-4 px-5">
+          <div className="flex flex-col gap-1">
+            <h2 className="flex items-center gap-2 font-display text-subheading"><Megaphone className="size-4" /> O que fazer agora</h2>
+            <span className="text-caption text-muted-foreground">Os gargalos do funil, com a ação de cada um.</span>
+          </div>
+          {loading && !data ? (
+            <>
+              <Skeleton className="h-20 w-full rounded-2xl" />
+              <Skeleton className="h-20 w-full rounded-2xl" />
+            </>
+          ) : insights.length === 0 ? (
+            <p className="text-body text-muted-foreground">Nenhum gargalo evidente no período.</p>
+          ) : (
+            insights.map((insight, index) => (
+              <div key={insight.id} className={cn("flex flex-col gap-3 rounded-2xl p-4", index === 0 ? "brand-gradient" : "bg-paper-mist")}>
+                <div className="flex items-start gap-2">
+                  {insight.severity === "atencao" ? <AlertTriangle className="mt-0.5 size-4 shrink-0 text-tangerine" /> : <Lightbulb className="mt-0.5 size-4 shrink-0 text-electric-blue" />}
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-body font-medium">{insight.title}</span>
+                    <span className="text-caption">{insight.description}</span>
                   </div>
                 </div>
-              ))
-            )}
-          </CardContent>
+                <div className="flex items-center justify-between gap-2">
+                  <span className={cn("text-[10px] uppercase tracking-wide", STAGE_STYLE[insight.stage].accent)}>{insight.stage}</span>
+                  {insight.action.kind === "task" ? (
+                    <Button size="sm" variant="outline" className="bg-card" onClick={() => runInsight(insight)}>{insight.action.label}</Button>
+                  ) : insight.action.kind === "external" ? (
+                    <Button size="sm" variant="outline" className="bg-card" asChild><a href={insight.action.href} target="_blank" rel="noreferrer">{insight.action.label}</a></Button>
+                  ) : (
+                    <Button size="sm" variant="outline" className="bg-card" asChild><Link href={insight.action.href ?? "/"}>{insight.action.label}</Link></Button>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
         </Card>
-        </div>
       </div>
 
       <CampaignsSection />

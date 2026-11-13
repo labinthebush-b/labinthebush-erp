@@ -148,17 +148,6 @@ export default function ConfiguracoesPage() {
           <CardDescription>Personalize a visão inicial do ERP.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
-            <div>
-              <p className="text-body font-medium text-foreground">Visão detalhada por padrão</p>
-              <p className="text-caption text-muted-foreground">Mostra os cards do Dashboard com mais números logo de início.</p>
-            </div>
-            <Switch
-              checked={settings.dashboardDetailed}
-              onCheckedChange={(checked) => updateSettings({ dashboardDetailed: checked })}
-            />
-          </div>
-
           <div className="flex flex-col gap-2">
             <p className="text-body font-medium text-foreground">Widgets visíveis</p>
             {DASHBOARD_WIDGETS.map((widget) => (

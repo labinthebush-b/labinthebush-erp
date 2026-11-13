@@ -66,3 +66,19 @@ export function productsBelowMargin(products: Product[], thresholdPercent: numbe
     })
     .filter((p) => p.margemPercent <= thresholdPercent);
 }
+
+/** Peças vendidas de cada produto em cada mês (yyyy-MM) pedido — para o mini gráfico da lista de Produtos. */
+export function buildProductMonthlyUnits(sales: Sale[], monthIds: string[]): Map<string, number[]> {
+  const index = new Map(monthIds.map((id, i) => [id, i]));
+  const out = new Map<string, number[]>();
+  for (const sale of sales) {
+    const i = index.get(sale.date.slice(0, 7));
+    if (i === undefined) continue;
+    for (const item of sale.items) {
+      const row = out.get(item.productId) ?? monthIds.map(() => 0);
+      row[i] += item.quantity;
+      out.set(item.productId, row);
+    }
+  }
+  return out;
+}

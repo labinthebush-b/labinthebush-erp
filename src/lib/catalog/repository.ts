@@ -15,6 +15,8 @@ type ProductRow = {
   price: number | null;
   cost_components: Product["costComponents"];
   image: string | null;
+  /** 0009 — ausente em bancos que ainda não rodaram a migration. */
+  store_url?: string | null;
   category: string | null;
   collection: string | null;
   sku: string | null;
@@ -35,6 +37,7 @@ function rowToProduct(row: ProductRow): Product {
     price: row.price ?? undefined,
     costComponents: row.cost_components ?? [],
     image: row.image ?? undefined,
+    storeUrl: row.store_url ?? undefined,
     category: row.category ?? undefined,
     collection: row.collection ?? undefined,
     sku: row.sku ?? undefined,
@@ -57,6 +60,8 @@ function productToRow(userId: string, product: Product): ProductRow {
     price: product.price ?? null,
     cost_components: product.costComponents,
     image: product.image ?? null,
+    // Só vai quando existe: um banco sem a 0009 continua salvando produtos sem link.
+    ...(product.storeUrl ? { store_url: product.storeUrl } : {}),
     category: product.category ?? null,
     collection: product.collection ?? null,
     sku: product.sku ?? null,

@@ -2,7 +2,6 @@
 
 import { AlertTriangle } from "lucide-react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { BarChart, Sparkline } from "@/components/common/chart-placeholder";
 import { DataTable, type DataTableColumn } from "@/components/common/data-table";
 import { EmptyState } from "@/components/common/empty-state";
 import { Tag, type TagColor } from "@/components/common/tag";
@@ -11,7 +10,6 @@ import { useSales } from "@/lib/sales/sales-provider";
 import { useCatalog } from "@/lib/catalog/catalog-provider";
 import { useContacts } from "@/lib/contacts/contacts-provider";
 import { useSettings } from "@/lib/settings/settings-provider";
-import { buildWeeklyCashFlowSeries, buildSalesTrendSeries } from "@/lib/dashboard/calculations";
 import {
   deriveFinanceNotifications,
   deriveLowStockNotifications,
@@ -38,54 +36,6 @@ const CHANNEL_LABELS: Record<SalesChannel, string> = {
   outro: "Outro",
 };
 
-export function WeeklyCashFlowCard({ todayISO }: { todayISO: string }) {
-  const { transactions } = useFinance();
-  const series = buildWeeklyCashFlowSeries(transactions, todayISO);
-  const hasData = series.some((d) => d.value > 0);
-
-  return (
-    <Card className="lg:col-span-2">
-      <CardHeader>
-        <CardTitle>Fluxo de caixa da semana</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {hasData ? (
-          <BarChart data={series} />
-        ) : (
-          <EmptyState
-            title="Sem entradas nos últimos 7 dias"
-            description="Assim que houver receitas ou aportes confirmados, eles aparecem aqui."
-          />
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-export function SalesTrendCard({ todayISO }: { todayISO: string }) {
-  const { sales } = useSales();
-  const series = buildSalesTrendSeries(sales, todayISO);
-  const hasData = series.some((v) => v > 0);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Tendência de vendas</CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        {hasData ? (
-          <>
-            <Sparkline data={series} className="h-16 w-full" />
-            <p className="text-caption text-muted-foreground">Últimos 10 dias</p>
-          </>
-        ) : (
-          <p className="text-body text-muted-foreground">Nenhuma venda registrada nos últimos 10 dias.</p>
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
 export function RecentSalesCard() {
   const { sales } = useSales();
   const { products } = useCatalog();
@@ -102,9 +52,9 @@ export function RecentSalesCard() {
   ];
 
   return (
-    <Card className="lg:col-span-2">
+    <Card>
       <CardHeader>
-        <CardTitle>Últimas vendas</CardTitle>
+        <CardTitle className="font-display text-subheading">Últimas vendas</CardTitle>
       </CardHeader>
       <CardContent>
         <DataTable
@@ -134,7 +84,7 @@ export function UpcomingPaymentsCard() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Próximos pagamentos</CardTitle>
+        <CardTitle className="font-display text-subheading">Próximos pagamentos</CardTitle>
       </CardHeader>
       <CardContent>
         <DataTable
@@ -172,7 +122,7 @@ export function AlertsCard({ todayISO }: { todayISO: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Alertas</CardTitle>
+        <CardTitle className="font-display text-subheading">Alertas</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {alerts.length === 0 ? (

@@ -8,13 +8,6 @@ import { CurrencyInput } from "@/components/common/currency-input";
 import { DateInput } from "@/components/common/date-input";
 import { Combobox } from "@/components/common/combobox";
 import { CollapsibleSection } from "@/components/common/collapsible-section";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { DrawerForm, DrawerFormActions } from "@/components/common/drawer-form";
 import { useContacts } from "@/lib/contacts/contacts-provider";
 import { useSales } from "@/lib/sales/sales-provider";
@@ -28,7 +21,8 @@ import { useUI } from "@/components/providers/ui-provider";
 import { ContactForm } from "@/components/contacts/contact-form";
 import { SaleItemsEditor } from "@/components/sales/sale-items-editor";
 import { SaleDiscountsEditor } from "@/components/sales/sale-discounts-editor";
-import { buildSaleItem, calculateSaleBreakdown, validateDiscounts } from "@/lib/sales/calculations";
+import { buildSaleItem, calculateItemsCost, calculateSaleBreakdown, validateDiscounts } from "@/lib/sales/calculations";
+import { Segmented } from "@/components/common/segmented";
 import { formatCurrencyCents } from "@/lib/currency";
 import type { Contact } from "@/lib/contacts/types";
 import type { Discount, Sale, SaleItem, SalesChannel } from "@/lib/sales/types";
@@ -59,7 +53,7 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
   const { addSale, updateSale } = useSales();
   const { settings } = useSettings();
   const { transactions } = useFinance();
-  const { products } = useCatalog();
+  const { products, getProduct } = useCatalog();
   const { movements } = useStock();
   const { openModal, closeModal } = useUI();
   const isEditing = Boolean(sale);
@@ -98,6 +92,8 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
   }
 
   const breakdown = calculateSaleBreakdown({ items, discounts, shippingCost, channel, nuvemshopFeePercent: settings.nuvemshopFeePercent });
+  // Mesma conta do detalhe do pedido (calculateSaleContribution), ao vivo enquanto preenche.
+  const saleContribution = breakdown.totalAmount - calculateItemsCost(items, getProduct) - shippingCost - breakdown.nuvemshopFeeAmount;
   const shortages = React.useMemo(
     () =>
       findStockShortages({
@@ -169,6 +165,14 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
   return (
     <>
       <DrawerForm>
+        <Field label="Peças" hint="Toque na foto para adicionar; toque de novo para somar mais uma.">
+          <SaleItemsEditor items={items} onChange={setItems} />
+        </Field>
+
+        <Field label="Onde vendeu">
+          <Segmented label="Canal" variant="chips" value={channel} onChange={setChannel} options={CHANNEL_OPTIONS} />
+        </Field>
+
         <Field label="Data">
           <DateInput value={date} onValueChange={setDate} />
         </Field>
@@ -182,10 +186,6 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
             onCreateNew={openNewContact}
             createLabel="Adicionar novo contato"
           />
-        </Field>
-
-        <Field label="Produtos" hint="Adicione um ou mais produtos — o subtotal de cada um é sempre quantidade × preço unitário.">
-          <SaleItemsEditor items={items} onChange={setItems} />
         </Field>
 
         {shortages.length > 0 ? (
@@ -209,7 +209,7 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
           <SaleDiscountsEditor discounts={discounts} onChange={setDiscounts} />
         </CollapsibleSection>
 
-        <div className="flex flex-col gap-1.5 rounded-lg bg-paper-mist p-3">
+        <div className="brand-gradient flex flex-col gap-1.5 rounded-3xl p-4">
           <div className="flex justify-between text-body">
             <span className="text-muted-foreground">Subtotal</span>
             <span className="text-foreground">{formatCurrencyCents(breakdown.subtotal)}</span>
@@ -242,6 +242,14 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
               <span>{formatCurrencyCents(breakdown.nuvemshopFeeAmount)}</span>
             </div>
           ) : null}
+          <div className="mt-2 flex flex-col rounded-2xl bg-white/85 px-4 py-3">
+            <span className="text-caption">Lucro desta venda</span>
+            <span className="font-display text-heading leading-tight">{formatCurrencyCents(saleContribution)}</span>
+            <span className="text-caption text-muted-foreground">
+              total − custo das peças{shippingCost > 0 ? " − frete" : ""}{breakdown.nuvemshopFeeAmount > 0 ? " − taxa do canal" : ""}
+              {breakdown.totalAmount > 0 ? ` · margem ${Math.round((saleContribution / breakdown.totalAmount) * 100)}%` : ""}
+            </span>
+          </div>
           {channel === "nuvemshop" && settings.nuvemshopFeePercent === 0 ? (
             <p className="text-caption text-muted-foreground">
               Taxa da Nuvemshop ainda não configurada — defina em Configurações para que ela entre no cálculo.
@@ -249,29 +257,21 @@ export function SaleForm({ sale, onDone }: { sale?: Sale; onDone: () => void }) 
           ) : null}
         </div>
 
-        <Field label="Canal">
-          <Select value={channel} onValueChange={(value) => setChannel(value as SalesChannel)}>
-            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {CHANNEL_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </Field>
-
         {paymentIsEditable ? (
           <Field
             label="Pagamento"
             hint="Pendente entra em “A receber” no Financeiro e só vira caixa quando você marcar a venda como paga."
           >
-            <Select value={payment} onValueChange={(value) => setPayment(value as SalePaymentInput)}>
-              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pago">Pago</SelectItem>
-                <SelectItem value="pendente">Pendente — a receber</SelectItem>
-              </SelectContent>
-            </Select>
+            <Segmented
+              label="Pagamento"
+              variant="chips"
+              value={payment}
+              onChange={setPayment}
+              options={[
+                { value: "pago", label: "Já pago" },
+                { value: "pendente", label: "A receber" },
+              ]}
+            />
           </Field>
         ) : (
           <p className="text-caption text-muted-foreground">

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { toast } from "sonner";
-import { Clock, MoreHorizontal, Plus, Receipt, Search, ShoppingBag, TrendingUp } from "lucide-react";
+import { MoreHorizontal, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,7 +14,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DataTable, type DataTableColumn } from "@/components/common/data-table";
-import { StatCard } from "@/components/common/stat-card";
 import { Tag } from "@/components/common/tag";
 import { useSales } from "@/lib/sales/sales-provider";
 import { useFinance } from "@/lib/finance/finance-provider";
@@ -26,9 +25,6 @@ import { SaleDetail } from "@/components/sales/sale-detail";
 import { CHANNEL_LABELS, CHANNEL_TAG_COLOR, PAYMENT_TAG_COLOR } from "@/components/sales/sale-labels";
 import { calculateSaleProfit } from "@/lib/sales/calculations";
 import { PAYMENT_LABELS, getSalePaymentStatus, indexTransactionsById, type SalePaymentStatus } from "@/lib/sales/payment";
-import { summarizeSales } from "@/lib/sales/summary";
-import { percentChange, previousPeriodRange, resolvePeriodRange } from "@/lib/reports/period-range";
-import { todayISO } from "@/lib/finance/actions";
 import { formatCurrencyCents, formatSignedCurrencyCents } from "@/lib/currency";
 import type { DiscountKind, Sale } from "@/lib/sales/types";
 
@@ -57,14 +53,6 @@ export function SalesPanel() {
 
   const transactionsById = React.useMemo(() => indexTransactionsById(transactions), [transactions]);
   const statusOf = React.useCallback((sale: Sale) => getSalePaymentStatus(sale, transactionsById), [transactionsById]);
-
-  const summary = React.useMemo(() => {
-    const range = resolvePeriodRange("mes", todayISO());
-    const current = summarizeSales(sales, statusOf, getProduct, range);
-    const previous = summarizeSales(sales, statusOf, getProduct, previousPeriodRange(range));
-    const trend = percentChange(current.revenue, previous.revenue);
-    return { current, revenueTrend: trend === undefined ? undefined : Math.round(trend) };
-  }, [sales, statusOf, getProduct]);
 
   const counts = React.useMemo(
     () => ({
@@ -221,45 +209,10 @@ export function SalesPanel() {
     },
   ];
 
-  const { current, revenueTrend } = summary;
   const hasActiveFilter = filter !== "todas" || search.trim() !== "";
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <StatCard
-          label="Receita do mês"
-          icon={TrendingUp}
-          value={formatCurrencyCents(current.revenue)}
-          trend={revenueTrend}
-          footer={<span className="text-caption text-muted-foreground">{current.count} {current.count === 1 ? "venda" : "vendas"} neste mês</span>}
-        />
-        <StatCard
-          label="A receber"
-          icon={Clock}
-          value={formatCurrencyCents(current.receivable)}
-          footer={
-            <span className="text-caption text-muted-foreground">
-              {current.receivableCount === 0
-                ? "Nenhuma venda pendente"
-                : `${current.receivableCount} ${current.receivableCount === 1 ? "venda pendente" : "vendas pendentes"}`}
-            </span>
-          }
-        />
-        <StatCard
-          label="Ticket médio"
-          icon={Receipt}
-          value={formatCurrencyCents(current.averageTicket)}
-          footer={<span className="text-caption text-muted-foreground">por venda, neste mês</span>}
-        />
-        <StatCard
-          label="Lucro estimado"
-          icon={ShoppingBag}
-          value={formatSignedCurrencyCents(current.profit)}
-          footer={<span className="text-caption text-muted-foreground">receita − custo dos produtos</span>}
-        />
-      </div>
-
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <Tabs value={filter} onValueChange={(value) => setFilter(value as PaymentFilter)}>

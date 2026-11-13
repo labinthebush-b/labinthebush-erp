@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- fotos dos produtos vêm do CDN da loja */
+
 import * as React from "react";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,7 @@ import { formatCurrencyCents } from "@/lib/currency";
 import { buildSaleItem } from "@/lib/sales/calculations";
 import { useCatalog } from "@/lib/catalog/catalog-provider";
 import { useStock } from "@/lib/stock/stock-provider";
+import { cn } from "@/lib/utils";
 import type { Product } from "@/lib/catalog/types";
 import type { SaleItem } from "@/lib/sales/types";
 
@@ -70,6 +73,30 @@ export function SaleItemsEditor({ items, onChange }: { items: SaleItem[]; onChan
     updateItem(id, { productId, unitPrice: product?.price ?? 0, size: variant.size, color: variant.color });
   }
 
+  /**
+   * Toque na foto: se a peça já está na venda e não tem tamanho/cor a escolher,
+   * soma 1; se a venda só tem a linha vazia inicial, ela vira esta peça; senão
+   * entra uma linha nova.
+   */
+  function pickProduct(product: Product) {
+    const variant = defaultVariant(product);
+    const needsChoice = optionsOf(product.sizes).length > 1 || optionsOf(product.colors).length > 1;
+    const existing = items.find((i) => i.productId === product.id);
+    if (existing && !needsChoice) {
+      updateItem(existing.id, { quantity: existing.quantity + 1 });
+      return;
+    }
+    const blank = items.find((i) => !i.productId);
+    if (blank) {
+      updateItem(blank.id, { productId: product.id, unitPrice: product.price ?? 0, size: variant.size, color: variant.color, quantity: 1 });
+      return;
+    }
+    onChange([...items, buildSaleItem({ productId: product.id, ...variant, quantity: 1, unitPrice: product.price ?? 0 })]);
+  }
+
+  const pickable = products.filter((p) => p.status !== "arquivado");
+  const quantityOf = (productId: string) => items.filter((i) => i.productId === productId).reduce((sum, i) => sum + i.quantity, 0);
+
   function removeItem(id: string) {
     onChange(items.filter((item) => item.id !== id));
   }
@@ -96,7 +123,39 @@ export function SaleItemsEditor({ items, onChange }: { items: SaleItem[]; onChan
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
+      {pickable.length > 0 ? (
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+          {pickable.map((product) => {
+            const qty = quantityOf(product.id);
+            return (
+              <button
+                key={product.id}
+                type="button"
+                onClick={() => pickProduct(product)}
+                aria-label={`Adicionar ${product.name}`}
+                className={cn(
+                  "flex flex-col gap-1.5 rounded-2xl border-2 p-1.5 text-left transition-colors outline-none focus-visible:ring-3 focus-visible:ring-ring/50",
+                  qty > 0 ? "border-primary bg-sidebar-accent" : "border-border bg-card hover:bg-paper-mist"
+                )}
+              >
+                <span className="relative block">
+                  {product.image ? (
+                    <img src={product.image} alt="" className="aspect-square w-full rounded-xl bg-paper-mist object-cover" />
+                  ) : (
+                    <span className="flex aspect-square w-full items-center justify-center rounded-xl bg-paper-mist text-caption text-muted-foreground">sem foto</span>
+                  )}
+                  {qty > 0 ? (
+                    <span className="absolute top-1.5 right-1.5 flex h-7 min-w-7 items-center justify-center rounded-full bg-primary px-2 text-caption font-semibold text-primary-foreground">{qty}</span>
+                  ) : null}
+                </span>
+                <span className="line-clamp-2 px-1 text-caption font-medium">{product.name}</span>
+                <span className="px-1 pb-1 text-caption text-muted-foreground">{product.price ? formatCurrencyCents(product.price) : "sem preço"}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
       {items.map((item) => {
         const product = products.find((p) => p.id === item.productId);
         const sizes = optionsOf(product?.sizes);
@@ -106,8 +165,9 @@ export function SaleItemsEditor({ items, onChange }: { items: SaleItem[]; onChan
         const available = showStock ? availableFor(item) : 0;
 
         return (
-          <div key={item.id} className="flex flex-col gap-2 rounded-lg border border-border p-2.5">
+          <div key={item.id} className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-2.5">
             <div className="flex items-center gap-2">
+              {product?.image ? <img src={product.image} alt="" className="size-10 shrink-0 rounded-xl bg-paper-mist object-cover" /> : null}
               <div className="min-w-0 flex-1">
                 <Combobox
                   options={products.map((p) => ({ value: p.id, label: p.name }))}
@@ -173,7 +233,7 @@ export function SaleItemsEditor({ items, onChange }: { items: SaleItem[]; onChan
       })}
       <Button variant="outline" size="sm" className="w-fit" onClick={addItem} type="button">
         <Plus className="size-3.5" />
-        Adicionar produto
+        Adicionar outra linha
       </Button>
     </div>
   );

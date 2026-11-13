@@ -38,9 +38,10 @@ export function PlanningBudgets({ monthId }: { monthId: string }) {
   const range = monthBounds(monthId);
   const resultado = calculateResultado(transactions, range, categories);
   const distribution = buildCategoryDistribution(transactions, categories, range);
-  const progress = buildBudgetProgress(budgets, distribution, categories, resultado.receita);
-
   const despesaCategories = categories.filter((c) => c.group === "custo" || c.group === "despesa");
+  // Só metas de custo/despesa aqui; a meta de receita de vendas fica na tela de Vendas.
+  const expenseBudgets = budgets.filter((b) => despesaCategories.some((c) => c.id === b.categoryId));
+  const progress = buildBudgetProgress(expenseBudgets, distribution, categories, resultado.receita);
   const availableCategories = despesaCategories.filter((c) => !budgets.some((b) => b.categoryId === c.id));
 
   function handleAdd() {

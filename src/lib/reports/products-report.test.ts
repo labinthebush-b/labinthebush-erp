@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildProductsReport, productsBelowMargin } from "./products-report";
+import { buildProductMonthlyUnits, buildProductsReport, productsBelowMargin } from "./products-report";
 import { makeSale, makeSaleItem } from "@/lib/sales/test-helpers";
 import type { Product } from "@/lib/catalog/types";
 
@@ -55,5 +55,20 @@ describe("productsBelowMargin", () => {
   it("ignora produtos sem preço definido", () => {
     const noPrice: Product = { ...product, id: "p3", price: undefined };
     expect(productsBelowMargin([noPrice], 50)).toEqual([]);
+  });
+});
+
+describe("buildProductMonthlyUnits", () => {
+  it("soma as peças de cada produto por mês; meses fora da lista são ignorados", () => {
+    const sales = [
+      makeSale({ date: "2026-09-03", items: [makeSaleItem({ productId: "p1", quantity: 2 }), makeSaleItem({ productId: "p2", quantity: 1 })] }),
+      makeSale({ date: "2026-09-20", items: [makeSaleItem({ productId: "p1", quantity: 1 })] }),
+      makeSale({ date: "2026-11-01", items: [makeSaleItem({ productId: "p1", quantity: 4 })] }),
+      makeSale({ date: "2026-05-01", items: [makeSaleItem({ productId: "p1", quantity: 9 })] }),
+    ];
+    const units = buildProductMonthlyUnits(sales, ["2026-09", "2026-10", "2026-11"]);
+    expect(units.get("p1")).toEqual([3, 0, 4]);
+    expect(units.get("p2")).toEqual([1, 0, 0]);
+    expect(units.has("p3")).toBe(false);
   });
 });
