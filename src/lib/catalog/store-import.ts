@@ -7,7 +7,10 @@
 //      cujo @id é a própria página) — a página também traz JSON-LD dos
 //      produtos relacionados, que precisam ser ignorados;
 //   2. data-variants (tamanhos/cores e preço em centavos);
-//   3. meta tags og:* como reserva.
+//   3. meta tags og:* como reserva;
+//   4. produto NÃO LISTADO: a Nuvemshop serve a página sem og:* nem JSON-LD —
+//      aí o nome vem do <h1>, a descrição da meta "description" e a foto das
+//      variantes.
 
 import { STORE_CDN_HOST } from "@/lib/brand";
 
@@ -106,9 +109,9 @@ function titleCase(text: string): string {
   return text.toLowerCase().replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase());
 }
 
-type Variant = { option0?: string | null; option1?: string | null; price_number_raw?: number };
+type Variant = { option0?: string | null; option1?: string | null; price_number_raw?: number; image_url?: string | null };
 
-function variantOptions(html: string): { sizes?: string[]; colors?: string[]; price?: number } {
+function variantOptions(html: string): { sizes?: string[]; colors?: string[]; price?: number; image?: string } {
   const raw = html.match(/data-variants="([^"]*)"/);
   if (!raw) return {};
   let variants: Variant[];
@@ -134,7 +137,9 @@ function variantOptions(html: string): { sizes?: string[]; colors?: string[]; pr
   return {
     sizes: unique(sizeAxis),
     colors: colorAxis !== undefined && colorAxis !== sizeAxis ? unique(colorAxis) : undefined,
+    // price_number_raw já é o preço de venda (com promoção, quando houver).
     price: typeof variants[0]?.price_number_raw === "number" ? variants[0].price_number_raw : undefined,
+    image: variants.find((v) => v.image_url)?.image_url?.replace(/^\/\//, "https://") ?? undefined,
   };
 }
 
@@ -147,7 +152,8 @@ function toCents(price: string | number | undefined): number | undefined {
 export function parseStoreProductPage(html: string, pageUrl: string): StoreProduct | null {
   const { product, collection } = mainLdProduct(html, pageUrl);
   const variants = variantOptions(html);
-  const name = product?.name?.trim() || meta(html, "og:title");
+  const h1 = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
+  const name = product?.name?.trim() || meta(html, "og:title") || h1;
   if (!name) return null;
 
   const offer = Array.isArray(product?.offers) ? product?.offers[0] : product?.offers;
@@ -157,8 +163,8 @@ export function parseStoreProductPage(html: string, pageUrl: string): StoreProdu
     storeUrl: pageUrl,
     name: decodeEntities(name),
     price: variants.price ?? toCents(offer?.price),
-    image: largestCdnImage(ldImage ?? meta(html, "og:image:secure_url") ?? meta(html, "og:image")),
-    description: product?.description ? decodeEntities(product.description) : meta(html, "og:description"),
+    image: largestCdnImage(ldImage ?? meta(html, "og:image:secure_url") ?? meta(html, "og:image") ?? variants.image),
+    description: product?.description ? decodeEntities(product.description) : (meta(html, "og:description") ?? meta(html, "description")),
     collection: collection ? titleCase(decodeEntities(collection)) : undefined,
     sizes: variants.sizes,
     colors: variants.colors,

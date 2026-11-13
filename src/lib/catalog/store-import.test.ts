@@ -63,6 +63,26 @@ describe("parseStoreProductPage", () => {
     expect(parseStoreProductPage(html, PAGE)).toMatchObject({ name: "Pôster & Arte", image: "https://dcdn-us.mitiendanube.com/a/b-1024-1024.webp", price: undefined });
   });
 
+  it("produto NÃO LISTADO (sem og:* nem JSON-LD): nome do <h1>, descrição da meta, foto e preço das variantes", () => {
+    const variants = JSON.stringify([
+      { option0: "P", price_number_raw: 49900, image_url: "//dcdn-us.mitiendanube.com/stores/008/085/163/products/jaqueta-frente-1024-1024.webp" },
+      { option0: "GG", price_number_raw: 49900, image_url: null },
+    ]).replace(/"/g, "&quot;");
+    const html = `<title>Jaqueta | Lab</title><meta name="description" content="Jaqueta preta &amp; com capuz." />
+<h1 class="js-product-name">SLEEPWALKER Jaqueta <span>[EDIÇÃO LIMITADA]</span></h1>
+<div data-variants="${variants}"></div><label for="variation_1">Tamanho</label>`;
+    expect(parseStoreProductPage(html, "https://labinthebush.com/produtos/sleepwalker-jaqueta/")).toEqual({
+      storeUrl: "https://labinthebush.com/produtos/sleepwalker-jaqueta/",
+      name: "SLEEPWALKER Jaqueta [EDIÇÃO LIMITADA]",
+      price: 49900,
+      image: "https://dcdn-us.mitiendanube.com/stores/008/085/163/products/jaqueta-frente-1024-1024.webp",
+      description: "Jaqueta preta & com capuz.",
+      collection: undefined,
+      sizes: ["P", "GG"],
+      colors: undefined,
+    });
+  });
+
   it("página que não é de produto: null", () => {
     expect(parseStoreProductPage("<html><body>404</body></html>", PAGE)).toBeNull();
   });
