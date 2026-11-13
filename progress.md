@@ -84,7 +84,7 @@ _Décima oitava atualização, 2026-11-11 — **IA (MCP) com conta compartilhada
 
 _Décima nona atualização, mesmo dia — **Etapa 3 publicada em produção**, com autorização explícita do usuário (que pediu para eu mesmo fazer no navegador dele, sem ele mexer no Supabase). Projeto de produção identificado como `rzxtkwdbgvunosrhsuhc` ("Dinossaurkillerjr's Project" — o único além do DEV) e conferido antes por consulta só de leitura: tabelas 0001–0005 presentes, 24 lançamentos, 2 usuários, 0006–0008 ausentes. Aplicadas no SQL Editor de PROD, uma por vez, todas com "Success": **0006 → 0007 → 0008**. Conferência depois (só leitura): as três presentes, 7 gatilhos `log_activity`, policies `_own` usando `current_account_id()`, 24 lançamentos intactos. Depois: push da `dev` e fast-forward `dev` → `main` (`bc3164c`); a Vercel publicou em ~1 min. Produção: `/login` 200, `/esqueci-senha` 200, `/atividades` abre logado (vazia — o log começa agora), `/api/keepalive` 200 `{"ok":true}`, `/api/mcp` 401 para chave inválida, Financeiro logado mostra os dados normalmente._
 
-## Estado atual (2026-11-11)
+_Décima nona atualização, 2026-11-13 — **Marketing: GA4 quebrado em produção, corrigido no DEV**. Diagnóstico (só leitura): `/api/marketing` em produção respondia `ga4: { ok: false, error: "error:1E08010C:DECODER routines::unsupported" }` — a `GA4_SERVICE_ACCOUNT_PRIVATE_KEY` da Vercel está num formato que o Node não decodifica (quebras de linha perdidas ao colar); por isso Meio e Fundo do funil ficavam em "—". O GA4 tem dados (30 dias: 163 sessões, 85 `view_item`, 10 `begin_checkout`, **1 `purchase`** — o evento de compra começou a chegar). Correção: `normalizePrivateKey` (`src/lib/marketing/normalize.ts`) aceita PEM com `\n` literal, aspas, tudo numa linha, CRLF, espaços ou o JSON inteiro da conta de serviço, e erro de chave vira mensagem clara em vez do erro do OpenSSL. Período **"Desde o início"** no Marketing (padrão da tela): GA4 desde a criação da propriedade, ERP todas as vendas; Instagram fica nos últimos 30 dias (limite da API, alcance não soma entre janelas) com aviso e sem taxa alcance→visitas. Conferido com as funções reais do servidor e a chave simulada no formato quebrado. `npm test` 543/543, lint e build ok. Produção **não** tocada._
 
 **Fase**: pós-deploy. Etapa 3 (conta compartilhada, log de atividades, IA completa) **publicada em 2026-11-11**; `dev` = `main`.
 
@@ -101,7 +101,8 @@ _Décima nona atualização, mesmo dia — **Etapa 3 publicada em produção**, 
 **RLS / conta compartilhada (T2.3)**: verificado ao vivo no DEV (dono, sócio e estranho logados) — e agora também pela IA.
 
 **Pendências que dependem do usuário**:
-- [ ] Recolocar `GA4_SERVICE_ACCOUNT_EMAIL`/`GA4_SERVICE_ACCOUNT_PRIVATE_KEY`/`GA4_PROPERTY_ID` no `.env.local` (na Vercel são secretas, não dá para ler).
+- [x] ~~Recolocar `GA4_*` no `.env.local`~~ — já estão lá e funcionam (conferido 2026-11-13).
+- [ ] Publicar a correção do GA4 (dev → main) e, se ainda falhar, recolar a chave na Vercel a partir do `.env.local`.
 - [ ] Evento `purchase` do GA4 na Nuvemshop (T5.1.b) — compra de teste no DebugView.
 - [ ] Responder as decisões do plano de mensuração (`PLANO_MENSURACAO_MARKETING.md`, seção 3).
 - [ ] Validar a etapa 1 de Marketing (campanhas) no DEV.

@@ -104,7 +104,7 @@ function StageConnector() {
 }
 
 export function MarketingPanel() {
-  const [days, setDays] = React.useState<MarketingPeriodDays>(30);
+  const [days, setDays] = React.useState<MarketingPeriodDays>("tudo");
   const [data, setData] = React.useState<MarketingResponse | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [failed, setFailed] = React.useState<string | null>(null);
@@ -142,7 +142,9 @@ export function MarketingPanel() {
 
   const erp = React.useMemo(() => {
     const today = todayISO();
-    const range = resolvePeriodRange("personalizado", today, { start: addDaysISO(today, -(days - 1)), end: today });
+    // "tudo": todas as vendas do ERP, desde a primeira.
+    const start = days === "tudo" ? "2000-01-01" : addDaysISO(today, -(days - 1));
+    const range = resolvePeriodRange("personalizado", today, { start, end: today });
     const byId = indexTransactionsById(transactions);
     const statusOf = (s: (typeof sales)[number]) => getSalePaymentStatus(s, byId);
     const summary = summarizeSales(sales, statusOf, getProduct, range);
@@ -163,7 +165,7 @@ export function MarketingPanel() {
 
   const instagram = data?.instagram.ok ? data.instagram.data : undefined;
   const ga4 = data?.ga4.ok ? data.ga4.data : undefined;
-  const funnel = buildSalesFunnel({ instagram, ga4, erp });
+  const funnel = buildSalesFunnel({ instagram, ga4, erp, instagramPartial: days === "tudo" });
   const insights = deriveFunnelInsights({ instagram, ga4, erp });
 
   const sourceErrors = [data && !data.ga4.ok ? data.ga4.error : null, data && !data.instagram.ok ? data.instagram.error : null].filter(Boolean) as string[];
@@ -228,12 +230,13 @@ export function MarketingPanel() {
           value={String(days)}
           onValueChange={(value) => {
             setLoading(true);
-            setDays(value === "7" ? 7 : 30);
+            setDays(value === "7" ? 7 : value === "tudo" ? "tudo" : 30);
           }}
         >
           <TabsList>
             <TabsTrigger value="7">Últimos 7 dias</TabsTrigger>
             <TabsTrigger value="30">Últimos 30 dias</TabsTrigger>
+            <TabsTrigger value="tudo">Desde o início</TabsTrigger>
           </TabsList>
         </Tabs>
         <span className="text-caption text-muted-foreground">

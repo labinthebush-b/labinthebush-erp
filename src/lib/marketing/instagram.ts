@@ -1,6 +1,6 @@
 // Server-only Instagram Graph API client (insights orgânicos da conta).
 
-import type { InstagramSummary, MarketingPeriodDays } from "./types";
+import { INSTAGRAM_MAX_DAYS, type InstagramSummary, type MarketingPeriodDays } from "./types";
 import type { InstagramMedia } from "@/lib/campaigns/types";
 import { describeApiError, parseInstagram } from "./normalize";
 
@@ -65,7 +65,9 @@ export async function fetchInstagramSummary(days: MarketingPeriodDays): Promise<
 
   const until = Math.floor(Date.now() / 1000);
   // A API aceita no máximo ~30 dias por consulta; 30 dias = 29 dias atrás + hoje.
-  const since = until - (days - 1) * 86400;
+  // "tudo" fica nos últimos 30 dias: é o máximo da API (a tela avisa).
+  const windowDays = days === "tudo" ? INSTAGRAM_MAX_DAYS : days;
+  const since = until - (windowDays - 1) * 86400;
   const params = new URLSearchParams({
     metric: ACCOUNT_METRICS.join(","),
     period: "day",

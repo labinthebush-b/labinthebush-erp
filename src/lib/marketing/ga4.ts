@@ -3,7 +3,7 @@
 
 import { createSign } from "node:crypto";
 import { FUNNEL_EVENTS, type Ga4Summary, type MarketingPeriodDays } from "./types";
-import { describeApiError, parseGa4 } from "./normalize";
+import { describeApiError, normalizePrivateKey, parseGa4 } from "./normalize";
 
 function base64url(input: Buffer | string): string {
   return Buffer.from(input).toString("base64").replace(/=+$/, "").replace(/\+/g, "-").replace(/\//g, "_");
@@ -24,7 +24,12 @@ async function getAccessToken(email: string, privateKey: string): Promise<string
   );
   const signer = createSign("RSA-SHA256");
   signer.update(`${header}.${claims}`);
-  const signature = base64url(signer.sign(privateKey));
+  let signature: string;
+  try {
+    signature = base64url(signer.sign(privateKey));
+  } catch {
+    throw new Error("GA4: a chave da conta de serviço está em formato inválido neste ambiente (confira GA4_SERVICE_ACCOUNT_PRIVATE_KEY).");
+  }
 
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
@@ -45,8 +50,9 @@ async function reportClient() {
   const rawKey = process.env.GA4_SERVICE_ACCOUNT_PRIVATE_KEY;
   const propertyId = process.env.GA4_PROPERTY_ID;
   if (!email || !rawKey || !propertyId) throw new Error("GA4 não configurado neste ambiente.");
-  // Em .env/Vercel a chave costuma vir com "\n" literais em vez de quebras de linha.
-  const token = await getAccessToken(email, rawKey.replace(/\\n/g, "\n"));
+  const privateKey = normalizePrivateKey(rawKey);
+  if (!privateKey) throw new Error("GA4: a chave da conta de serviço está em formato inválido neste ambiente (confira GA4_SERVICE_ACCOUNT_PRIVATE_KEY).");
+  const token = await getAccessToken(email.trim(), privateKey);
   return { token, url: `https://analyticsdata.googleapis.com/v1beta/properties/${propertyId}:runReport` };
 }
 
@@ -74,7 +80,8 @@ export async function fetchCampaignSessions(utmCampaign: string, start: string, 
 
 export async function fetchGa4Summary(days: MarketingPeriodDays): Promise<Ga4Summary> {
   const { token, url } = await reportClient();
-  const dateRanges = [{ startDate: `${days}daysAgo`, endDate: "today" }];
+  // "tudo": 2015-08-14 é a data mais antiga que a Data API aceita — na prática, desde a criação da propriedade.
+  const dateRanges = [{ startDate: days === "tudo" ? "2015-08-14" : `${days}daysAgo`, endDate: "today" }];
 
   async function runReport(body: object) {
     const res = await fetch(url, {

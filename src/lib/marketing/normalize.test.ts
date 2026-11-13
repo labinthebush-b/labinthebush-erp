@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildFunnel, describeApiError, parseDays, parseGa4, parseInstagram } from "./normalize";
+import { createSign, generateKeyPairSync } from "node:crypto";
+import { buildFunnel, describeApiError, normalizePrivateKey, parseDays, parseGa4, parseInstagram } from "./normalize";
 
 describe("parseDays", () => {
   it("aceita 7; qualquer outra coisa vira 30", () => {
@@ -8,6 +9,12 @@ describe("parseDays", () => {
     expect(parseDays(null)).toBe(30);
     expect(parseDays("365")).toBe(30);
     expect(parseDays("abc")).toBe(30);
+  });
+
+  it('aceita "tudo" (desde o início), e só escrito exatamente assim', () => {
+    expect(parseDays("tudo")).toBe("tudo");
+    expect(parseDays("TUDO")).toBe(30);
+    expect(parseDays("0")).toBe(30);
   });
 });
 
@@ -102,5 +109,40 @@ describe("describeApiError", () => {
     const message = describeApiError("GA4", 400, { error: { message: "x".repeat(500) } });
     expect(message.startsWith("GA4: erro 400")).toBe(true);
     expect(message.length).toBeLessThan(170);
+  });
+});
+
+describe("normalizePrivateKey", () => {
+  const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 1024, privateKeyEncoding: { type: "pkcs8", format: "pem" }, publicKeyEncoding: { type: "spki", format: "pem" } });
+  const body = privateKey.replace(/-----(BEGIN|END) PRIVATE KEY-----/g, "").replace(/\s+/g, "");
+  const signs = (pem: string | null) => {
+    if (!pem) return false;
+    createSign("RSA-SHA256").update("x").sign(pem);
+    return true;
+  };
+
+  it.each([
+    ["PEM correto", privateKey],
+    ['"\n" literais (padrão .env)', privateKey.replace(/\n/g, "\n")],
+    ["entre aspas", `"${privateKey.replace(/\n/g, "\n")}"`],
+    ["tudo numa linha, sem quebras", `-----BEGIN PRIVATE KEY-----${body}-----END PRIVATE KEY-----`],
+    ["quebras do Windows", privateKey.replace(/\n/g, "\r\n")],
+    ["espaços no lugar das quebras", privateKey.replace(/\n/g, " ")],
+    ["JSON inteiro da conta de serviço", JSON.stringify({ type: "service_account", private_key: privateKey, client_email: "x@y.iam.gserviceaccount.com" })],
+  ])("aceita %s", (_label, raw) => {
+    expect(signs(normalizePrivateKey(raw))).toBe(true);
+  });
+
+  it("o formato que quebrava sem normalizar (prova do bug de produção)", () => {
+    const oneLine = `-----BEGIN PRIVATE KEY-----${body}-----END PRIVATE KEY-----`;
+    expect(() => createSign("RSA-SHA256").update("x").sign(oneLine)).toThrow();
+  });
+
+  it("devolve null quando não há chave reconhecível", () => {
+    expect(normalizePrivateKey(undefined)).toBeNull();
+    expect(normalizePrivateKey("")).toBeNull();
+    expect(normalizePrivateKey("abc")).toBeNull();
+    expect(normalizePrivateKey("{json quebrado")).toBeNull();
+    expect(normalizePrivateKey("-----BEGIN PRIVATE KEY----------END PRIVATE KEY-----")).toBeNull();
   });
 });

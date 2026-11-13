@@ -11,7 +11,9 @@ export const FUNNEL_LABELS: Record<FunnelEvent, string> = {
 
 /** Só aceita os períodos suportados; qualquer outra coisa vira 30 dias. */
 export function parseDays(value: string | null): MarketingPeriodDays {
-  return value === "7" ? 7 : 30;
+  if (value === "7") return 7;
+  if (value === "tudo") return "tudo";
+  return 30;
 }
 
 function toNumber(value: unknown): number {
@@ -65,6 +67,30 @@ export function parseInstagram(insights: InstagramInsights): InstagramSummary {
     profileLinksTaps: byName.get("profile_links_taps") ?? 0,
     views: byName.get("views") ?? 0,
   };
+}
+
+/**
+ * A chave da conta de serviço chega de jeitos diferentes conforme quem colou
+ * (Vercel, .env): com aspas, com "\n" literal, tudo numa linha só, ou o JSON
+ * inteiro baixado do Google. Devolve sempre um PEM válido (64 colunas), ou
+ * null se não houver chave reconhecível.
+ */
+export function normalizePrivateKey(raw: string | undefined): string | null {
+  if (!raw) return null;
+  let value = raw.trim();
+  if (value.startsWith("{")) {
+    try {
+      value = String((JSON.parse(value) as { private_key?: unknown }).private_key ?? "").trim();
+    } catch {
+      return null;
+    }
+  }
+  value = value.replace(/^["']+|["']+$/g, "").replace(/\\r/g, "").replace(/\\n/g, "\n");
+  const match = value.match(/-----BEGIN PRIVATE KEY-----([\s\S]*?)-----END PRIVATE KEY-----/);
+  if (!match) return null;
+  const body = match[1].replace(/[^A-Za-z0-9+/=]/g, "");
+  if (!body) return null;
+  return `-----BEGIN PRIVATE KEY-----\n${body.match(/.{1,64}/g)!.join("\n")}\n-----END PRIVATE KEY-----\n`;
 }
 
 /** Mensagem curta e sem dados sensíveis (tokens nunca aparecem em erro da API, mas a URL sim — por isso não repassamos a URL). */

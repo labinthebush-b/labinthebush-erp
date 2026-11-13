@@ -61,8 +61,15 @@ export function buildSalesFunnel(params: {
   instagram?: InstagramSummary;
   ga4?: Ga4Summary;
   erp: ErpFunnelInput;
+  /**
+   * true quando o Instagram cobre uma janela menor que o resto (período "tudo":
+   * a API só dá 30 dias). O alcance sai do caminho para não virar taxa
+   * comparando 30 dias com o histórico inteiro do site.
+   */
+  instagramPartial?: boolean;
 }): FunnelStage[] {
-  const { instagram, ga4, erp } = params;
+  const { instagram, ga4, erp, instagramPartial = false } = params;
+  const igHint = (hint: string) => (instagramPartial ? `${hint} — só os últimos 30 dias (limite do Instagram)` : hint);
   const event = (name: string) => ga4?.funnel.find((s) => s.event === name)?.count;
 
   return withRates([
@@ -71,8 +78,8 @@ export function buildSalesFunnel(params: {
       title: "Topo — Atração",
       question: "Quantas pessoas a marca alcançou?",
       metrics: [
-        { id: "reach", label: "Alcance no Instagram", hint: "contas únicas que viram a marca", source: "instagram", value: instagram?.reach, inPath: true },
-        { id: "engaged", label: "Engajaram", hint: "indicador paralelo — curtiram, comentaram, salvaram", source: "instagram", value: instagram?.accountsEngaged, inPath: false },
+        { id: "reach", label: "Alcance no Instagram", hint: igHint("contas únicas que viram a marca"), source: "instagram", value: instagram?.reach, inPath: !instagramPartial },
+        { id: "engaged", label: "Engajaram", hint: igHint("indicador paralelo — curtiram, comentaram, salvaram"), source: "instagram", value: instagram?.accountsEngaged, inPath: false },
       ],
     },
     {

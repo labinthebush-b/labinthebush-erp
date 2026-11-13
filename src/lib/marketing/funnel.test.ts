@@ -13,6 +13,24 @@ const ga4: Ga4Summary = {
 const erp: ErpFunnelInput = { openLeads: 5, salesCount: 3, paidCount: 2, receivableCount: 1, receivableAmount: 14200 };
 
 describe("buildSalesFunnel", () => {
+  it('período "tudo": alcance do Instagram (30 dias) sai do caminho e avisa a janela', () => {
+    const metrics = buildSalesFunnel({ instagram, ga4, erp, instagramPartial: true }).flatMap((s) => s.metrics);
+    const reach = metrics.find((m) => m.id === "reach")!;
+    expect(reach.value).toBe(5000);
+    expect(reach.inPath).toBe(false);
+    expect(reach.hint).toContain("últimos 30 dias");
+    expect(metrics.find((m) => m.id === "engaged")!.hint).toContain("últimos 30 dias");
+    // visitas viram o começo do caminho: sem taxa contra um alcance de outra janela
+    expect(metrics.find((m) => m.id === "sessions")!.rateFromPrevious).toBeUndefined();
+    expect(metrics.find((m) => m.id === "view_item")!.rateFromPrevious).toBeCloseTo(29.31, 1);
+  });
+
+  it("sem instagramPartial o comportamento continua igual (alcance no caminho, sem aviso)", () => {
+    const reach = buildSalesFunnel({ instagram, ga4, erp }).flatMap((s) => s.metrics).find((m) => m.id === "reach")!;
+    expect(reach.inPath).toBe(true);
+    expect(reach.hint).toBe("contas únicas que viram a marca");
+  });
+
   it("organiza em topo, meio e fundo, nessa ordem", () => {
     expect(buildSalesFunnel({ instagram, ga4, erp }).map((s) => s.id)).toEqual(["topo", "meio", "fundo"]);
   });

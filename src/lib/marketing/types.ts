@@ -2,7 +2,11 @@
 // Read live from GA4 (Data API) and Instagram (Graph API) on the server; no
 // table, no migration: the source systems already keep the history.
 
-export type MarketingPeriodDays = 7 | 30;
+/** 7 ou 30 dias, ou "tudo" = desde o início dos dados de cada fonte. */
+export type MarketingPeriodDays = 7 | 30 | "tudo";
+
+/** O Instagram só devolve até 30 dias por consulta, e alcance (contas únicas) não pode ser somado entre janelas. */
+export const INSTAGRAM_MAX_DAYS = 30;
 
 export const FUNNEL_EVENTS = ["view_item", "add_to_cart", "begin_checkout", "purchase"] as const;
 export type FunnelEvent = (typeof FUNNEL_EVENTS)[number];
