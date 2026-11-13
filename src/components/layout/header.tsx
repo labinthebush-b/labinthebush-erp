@@ -56,7 +56,7 @@ export function Header() {
   const { setCommandPaletteOpen } = useUI();
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background px-4">
+    <header className="flex h-16 shrink-0 items-center gap-3 bg-background px-4 sm:px-6">
       <MobileNav />
       <Breadcrumbs />
       <EnvironmentBadge />
@@ -64,7 +64,7 @@ export function Header() {
       <div className="ml-auto flex items-center gap-2">
         <Button
           variant="outline"
-          className="hidden h-8 gap-2 text-muted-foreground sm:flex"
+          className="hidden h-10 gap-2 bg-card px-4 text-muted-foreground sm:flex"
           onClick={() => setCommandPaletteOpen(true)}
         >
           <Search className="size-3.5" />

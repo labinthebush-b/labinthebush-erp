@@ -24,6 +24,7 @@ import { DataTable, type DataTableColumn } from "@/components/common/data-table"
 import { Tag, type TagColor } from "@/components/common/tag";
 import { StatusBadge, type Status } from "@/components/common/status-badge";
 import { Combobox } from "@/components/common/combobox";
+import type { Period } from "@/lib/finance/calculations";
 import { useFinance } from "@/lib/finance/finance-provider";
 import { useUI } from "@/components/providers/ui-provider";
 import { TransactionForm } from "@/components/finance/transaction-form";
@@ -44,7 +45,8 @@ function statusForBadge(status: TransactionStatus): Status {
   return "pendente";
 }
 
-export function TransactionsPanel({ monthId }: { monthId: string }) {
+/** Lista de lançamentos do período escolhido no topo do Financeiro (vazio = desde o início). */
+export function TransactionsPanel({ period }: { period: Period }) {
   const { transactions, categories, setTransactionStatus, deleteTransaction, isMonthClosed } = useFinance();
   const { openDrawer, closeDrawer, confirm } = useUI();
 
@@ -52,13 +54,12 @@ export function TransactionsPanel({ monthId }: { monthId: string }) {
   const [typeFilter, setTypeFilter] = React.useState<TransactionType | "todos">("todos");
   const [categoryFilter, setCategoryFilter] = React.useState<string>("");
   const [statusFilter, setStatusFilter] = React.useState<TransactionStatus | "todos">("todos");
-  const [periodFilter, setPeriodFilter] = React.useState<"mes" | "todos">("mes");
   const [search, setSearch] = React.useState("");
 
   const categoryMap = React.useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories]);
 
   const filtered = transactions
-    .filter((t) => (periodFilter === "mes" ? t.date.slice(0, 7) === monthId : true))
+    .filter((t) => (!period.start || t.date >= period.start) && (!period.end || t.date <= period.end))
     .filter((t) => (typeFilter === "todos" ? true : t.type === typeFilter))
     .filter((t) => (categoryFilter ? t.category === categoryFilter : true))
     .filter((t) => (statusFilter === "todos" ? true : t.status === statusFilter))
@@ -198,14 +199,6 @@ export function TransactionsPanel({ monthId }: { monthId: string }) {
             className="pl-8"
           />
         </div>
-
-        <Select value={periodFilter} onValueChange={(v) => setPeriodFilter(v as typeof periodFilter)}>
-          <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="mes">Mês selecionado</SelectItem>
-            <SelectItem value="todos">Todo o período</SelectItem>
-          </SelectContent>
-        </Select>
 
         <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as typeof typeFilter)}>
           <SelectTrigger className="w-36"><SelectValue placeholder="Tipo" /></SelectTrigger>

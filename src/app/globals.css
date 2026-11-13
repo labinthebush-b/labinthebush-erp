@@ -5,36 +5,49 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ------------------------------------------------------------------ */
-/* Design System tokens — "Dub" style reference (see DESIGN.md)        */
+/* Design System — Lab in the Bush (DESIGN.md)                         */
+/* Tema claro sobre o fundo do site (#f7fcff), acento = degradê da     */
+/* marca. Os nomes antigos (paper-mist, electric-blue...) continuam    */
+/* existindo para o app inteiro mudar de uma vez; os valores agora são */
+/* da paleta da marca.                                                 */
 /* ------------------------------------------------------------------ */
 
 @theme {
-  /* Palette — exposed as utilities (bg-canvas-white, text-fog, ...) */
+  /* Marca — cores do degradê do site */
+  --color-brand-sky: #88bbde;
+  --color-brand-blue: #6aa5cf;
+  --color-brand-aqua: #8cc7cc;
+  --color-brand-mist: #a9d0e7;
+  --color-page: #f7fcff;
+
+  /* Neutros azulados (texto e linhas) */
   --color-canvas-white: #ffffff;
-  --color-paper-mist: #f5f5f5;
-  --color-ash: #e5e5e5;
-  --color-smoke: #d4d4d4;
-  --color-pebble: #c8c8c8;
-  --color-midnight-ink: #0a0a0a;
-  --color-charcoal: #171717;
-  --color-graphite: #262626;
-  --color-slate: #404040;
-  --color-steel: #525252;
-  --color-fog: #737373;
-  --color-silver: #a3a3a3;
-  --color-electric-blue: #2563eb;
-  --color-deep-sapphire: #1e40af;
-  --color-soft-mint: #dcfce7;
-  --color-vivid-green: #16a34a;
-  --color-tangerine: #ea580c;
-  --color-lavender: #7c3aed;
-  --color-sidebar-active: #dbeaff;
-  --color-primary-action-fill: #000000;
+  --color-paper-mist: #eef5fa;
+  --color-ash: #dcebf4;
+  --color-smoke: #c9dfec;
+  --color-pebble: #b3cfe0;
+  --color-midnight-ink: #0f1f2b;
+  --color-charcoal: #0f1f2b;
+  --color-graphite: #1d3344;
+  --color-slate: #33495a;
+  --color-steel: #435a6b;
+  --color-fog: #4f6475;
+  --color-silver: #9fb2c0;
+
+  /* Acentos com contraste para texto (AA sobre branco) */
+  --color-electric-blue: #2d6f96;
+  --color-deep-sapphire: #1d4f6e;
+  --color-soft-mint: #e2f2ee;
+  --color-vivid-green: #1f7a5a;
+  --color-tangerine: #b04f22;
+  --color-lavender: #5b5fa8;
+  --color-sidebar-active: #e6f2f9;
+  --color-primary-action-fill: #0f1f2b;
 
   /* Typography */
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-display);
 
   --text-caption: 11px;
   --text-caption--line-height: 1.5;
@@ -56,13 +69,13 @@
   --text-display--line-height: 1;
 
   /* Radius — named per Design System (tags/cards/inputs/buttons/largeCards) */
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
-  --radius-xl: 12px;
-  --radius-2xl: 16px;
-  --radius-3xl: 20px;
-  --radius-4xl: 24px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 24px;
+  --radius-3xl: 28px;
+  --radius-4xl: 32px;
 
   /* Shadows */
   --shadow-subtle: rgba(0, 0, 0, 0.05) 0px 1px 2px 0px;
@@ -74,7 +87,7 @@
   --shadow-subtle-3: rgb(255, 255, 255) 0px 0px 0px 3px, rgb(0, 0, 0) 0px 0px 0px 4px;
 
   /* Layout */
-  --breakpoint-content: 1200px;
+  --breakpoint-content: 1320px;
 }
 
 @theme inline {
@@ -116,9 +129,9 @@
   --color-warning-foreground: var(--warning-foreground);
 }
 
-/* Semantic tokens — light theme only (Design System theme: light) */
+/* Semantic tokens — tema claro (o escuro vem depois) */
 :root {
-  --background: var(--color-canvas-white);
+  --background: var(--color-page);
   --foreground: var(--color-charcoal);
   --card: var(--color-canvas-white);
   --card-foreground: var(--color-charcoal);
@@ -132,21 +145,21 @@
   --muted-foreground: var(--color-fog);
   --accent: var(--color-paper-mist);
   --accent-foreground: var(--color-charcoal);
-  --destructive: #dc2626;
+  --destructive: #b42318;
   --destructive-foreground: var(--color-canvas-white);
   --success: var(--color-soft-mint);
   --success-foreground: #166534;
   --warning: #fef3c7;
   --warning-foreground: #92400e;
   --border: var(--color-ash);
-  --input: var(--color-midnight-ink);
+  --input: var(--color-smoke);
   --ring: var(--color-electric-blue);
   --chart-1: var(--color-electric-blue);
-  --chart-2: var(--color-vivid-green);
-  --chart-3: var(--color-tangerine);
-  --chart-4: var(--color-lavender);
-  --chart-5: var(--color-deep-sapphire);
-  --radius: 8px;
+  --chart-2: var(--color-brand-blue);
+  --chart-3: #c26a3d;
+  --chart-4: var(--color-vivid-green);
+  --chart-5: var(--color-brand-mist);
+  --radius: 14px;
   --sidebar: var(--color-canvas-white);
   --sidebar-foreground: var(--color-charcoal);
   --sidebar-primary: var(--color-electric-blue);
@@ -170,10 +183,57 @@
 }
 
 @layer utilities {
-  /* Satoshi substitute per Design System: Inter 500, tight tracking, display-only */
+  /* Títulos e números grandes: Space Grotesk, como no site */
   .font-display {
-    font-family: var(--font-sans);
+    font-family: var(--font-display);
     font-weight: 500;
     letter-spacing: -0.02em;
   }
+}
+
+/*
+ * Degradê da marca — o mesmo do header/footer do site: 4 elipses radiais +
+ * um linear suave, num ::after bem maior que o container (180% x 500%),
+ * deslocado e desfocado para as manchas se fundirem. O container corta o
+ * excesso; o conteúdo fica acima (z-index 2).
+ * Uso: class="brand-gradient" (estático) ou "brand-gradient brand-gradient-animated".
+ */
+.brand-gradient {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background-color: #e3f0f8;
+}
+.brand-gradient::after {
+  content: "";
+  position: absolute;
+  width: 180%;
+  height: 500%;
+  left: -40%;
+  top: -200%;
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(38px);
+  transform: translate3d(0, 0, 0) scale(1.05);
+  background:
+    radial-gradient(85% 38% at 15% 35%, rgba(136, 187, 222, 0.7), rgba(136, 187, 222, 0.34) 40%, transparent 70%),
+    radial-gradient(75% 30% at 52% 50%, rgba(106, 165, 207, 0.58), rgba(106, 165, 207, 0.27) 40%, transparent 70%),
+    radial-gradient(90% 32% at 78% 20%, rgba(140, 199, 204, 0.48), rgba(140, 199, 204, 0.2) 40%, transparent 70%),
+    radial-gradient(95% 35% at 38% 80%, rgba(169, 208, 231, 0.65), rgba(169, 208, 231, 0.24) 40%, transparent 70%),
+    linear-gradient(105deg, rgba(136, 187, 222, 0.22) 0%, transparent 18%, rgba(140, 199, 204, 0.25) 36%, transparent 54%, rgba(106, 165, 207, 0.2) 72%, transparent 90%);
+}
+.brand-gradient > * {
+  position: relative;
+  z-index: 2;
+}
+.brand-gradient-animated::after {
+  animation: brand-drift 24s ease-in-out infinite alternate;
+}
+@keyframes brand-drift {
+  0% { transform: translate3d(0, 0, 0) scale(1.05); }
+  50% { transform: translate3d(-4%, 3%, 0) scale(1.1) rotate(2deg); }
+  100% { transform: translate3d(3%, -2%, 0) scale(1.07) rotate(-1.5deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .brand-gradient-animated::after { animation: none; }
 }

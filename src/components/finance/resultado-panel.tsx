@@ -2,8 +2,7 @@
 
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { formatCurrencyCents } from "@/lib/currency";
-import { calculateResultado } from "@/lib/finance/calculations";
-import { monthBounds } from "@/lib/finance/period";
+import { calculateResultado, type Period } from "@/lib/finance/calculations";
 import { useFinance } from "@/lib/finance/finance-provider";
 import { cn } from "@/lib/utils";
 
@@ -21,8 +20,8 @@ function ResultLine({
   return (
     <div
       className={cn(
-        "flex items-center justify-between py-2",
-        emphasis ? "border-t border-border pt-3 text-body-lg font-medium" : "text-body"
+        "flex items-center justify-between py-2.5",
+        emphasis ? "border-t border-foreground/80 pt-3 font-display text-body-xl" : "border-t border-border text-body"
       )}
     >
       <span className={emphasis ? "text-foreground" : "text-muted-foreground"}>{label}</span>
@@ -34,14 +33,14 @@ function ResultLine({
   );
 }
 
-export function ResultadoPanel({ monthId }: { monthId: string }) {
+export function ResultadoPanel({ period, className }: { period: Period; className?: string }) {
   const { transactions, categories } = useFinance();
-  const resultado = calculateResultado(transactions, monthBounds(monthId), categories);
+  const resultado = calculateResultado(transactions, period, categories);
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader>
-        <CardTitle>Resultado do mês</CardTitle>
+        <CardTitle className="font-display text-subheading">Resultado</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col">
         <ResultLine label="Receita" value={resultado.receita} />
